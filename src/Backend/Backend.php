@@ -30,7 +30,7 @@ class Backend {
 	 * @return void
 	 */
 	public function enqueueStyles(): void {
-		wp_enqueue_style($this->controller->getPluginName(), plugin_dir_url(__FILE__) . "css/protected-content-admin.css", [], filemtime(plugin_dir_path(__FILE__) . "css/protected-content-admin.css"), "all");
+		wp_enqueue_style($this->controller->getPluginName(), plugin_dir_url(__FILE__) . "css/protected-pages-backend.css", [], filemtime(plugin_dir_path(__FILE__) . "css/protected-pages-backend.css"), "all");
 	}
 	
 	public function registerPostType(): void {
@@ -44,7 +44,7 @@ class Backend {
 			"parent_item_colon"     => "Parent Page:",
 			"all_items"             => "All Protected Pages",
 			"add_new_item"          => "Add New Protected Page",
-			"add_new"               => "Add New",
+			"add_new"               => "Add New Prot. Page",
 			"new_item"              => "New Protected Page",
 			"edit_item"             => "Edit Protected Page",
 			"update_item"           => "Update Protected Page",
@@ -90,18 +90,80 @@ class Backend {
 			],
 			"hierarchical"        => false,
 			"show_in_nav_menus"   => false,
-			"public"              => true,
+			"show_in_menu"        => false,
 			"show_ui"             => true,
-			"show_in_menu"        => true,
 			"show_in_admin_bar"   => true,
 			"can_export"          => true,
-			"has_archive"         => true,
 			"exclude_from_search" => true,
-			"publicly_queryable"  => true,
-			"show_in_rest"        => true,
 			"menu_position"       => 20,
+			
+			// one might think that, because we don't want our custom
+			// posts to be visible on the frontend of this site, we would
+			// set the next three flags to false.  but, when that's the
+			// case, going to the archive or singular slug for these
+			// types sometimes seems loads the index of the site and we
+			// don't want that to happen.  so, we leave these true and
+			// mess with templates in the Frontend object.
+			
+			"publicly_queryable"  => true,
+			"has_archive"         => true,
+			"public"              => true,
+			
+			// here's where the REST API magic happens.  the show_in_rest
+			// flag indicates that this post type should be available via
+			// the API, and the rest_base string indicates the route that
+			// we want.  so, the API for these posts will be found at the
+			// following endpoint:  /wp-json/wp/v2/protected-pages.
+			
+			"show_in_rest"        => true,
+			"rest_base"           => "protected-pages",
 		];
 		
 		register_post_type($this->controller->getPostTypeSlug(), $args);
+	}
+	
+	/**
+	 * Slightly alters the Pages menu of the Dashboard.
+	 *
+	 * @return void
+	 */
+	public function updatePageLabels(): void {
+		$postType = get_post_type_object("page");
+		$postType->labels->all_items = "All Unprotected Pages";
+		$postType->labels->add_new = "Add New Page";
+	}
+	
+	/**
+	 * Adds post type to Pages menu.
+	 *
+	 * @return void
+	 */
+	public function addPostTypeToPagesMenu(): void {
+		
+		
+		
+		// in our registration of our post type above, we specify that
+		// it should not be in the Dashboard's menu.  instead, we want
+		// to add it as a submenu of the Pages menu.  this method does
+		// that.
+		
+		$postTypeSlug = $this->controller->getPostTypeSlug();
+		$postType = get_post_type_object($postTypeSlug);
+		
+		add_submenu_page(
+			"edit.php?post_type=page",
+			$postType->labels->name,
+			$postType->labels->all_items,
+			"edit_pages",
+			"edit.php?post_type=" . $postTypeSlug
+		);
+		
+		add_submenu_page(
+			"edit.php?post_type=page",
+			$postType->labels->name,
+			$postType->labels->add_new,
+			"edit_pages",
+			"post-new.php?post_type=" . $postTypeSlug
+		);
 	}
 }

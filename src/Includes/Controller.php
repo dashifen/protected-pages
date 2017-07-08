@@ -53,6 +53,8 @@ class Controller {
 		$backend = new Backend($this);
 		
 		$this->loader->addAction("init", $backend, "registerPostType");
+		$this->loader->addAction("init", $backend, "updatePageLabels");
+		$this->loader->addAction("admin_menu", $backend, "addPostTypeToPagesMenu");
 		$this->loader->addAction("admin_enqueue_scripts", $backend, "enqueueStyles");
 	}
 	

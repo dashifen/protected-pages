@@ -3,8 +3,8 @@
 namespace Dashifen\ProtectedPages;
 
 use Dashifen\ProtectedPages\Includes\Activator;
-use Dashifen\ProtectedPages\Includes\Deactivator;
-use Dashifen\ProtectedPages\Includes\Uninstaller;
+//use Dashifen\ProtectedPages\Includes\Deactivator;
+//use Dashifen\ProtectedPages\Includes\Uninstaller;
 use Dashifen\ProtectedPages\Includes\Controller;
 
 // this is the file that actually controls our plugin.  first, we define
@@ -18,7 +18,7 @@ register_activation_hook(__FILE__, function() {
 	$activator->activate();
 });
 
-register_deactivation_hook(__FILE__, function() {
+/*register_deactivation_hook(__FILE__, function() {
 	$deactivator = new Deactivator();
 	$deactivator->deactivate();
 });
@@ -26,7 +26,7 @@ register_deactivation_hook(__FILE__, function() {
 register_uninstall_hook(__FILE__, function() {
 	$uninstaller = new Uninstaller();
 	$uninstaller->uninstall();
-});
+});*/
 
 // now, we want to instantiate the controller object for our plugin.
 // this object defines all of the actions and filters that we want to

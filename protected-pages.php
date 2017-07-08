@@ -20,10 +20,10 @@ if (!defined("WPINC")) {
 
 $content = file_get_contents(__FILE__);
 preg_match("/Version: ([\.0-9]+)/", file_get_contents(__FILE__), $matches);
-
-die($matches[1]);
-
 define("PROTECTED_PAGES_VERSION", $matches[1]);
+
+// now, there's two files to include:  our PSR-4 autoloader and the
+// PHP file which initializes our plugin.
 
 $path = plugin_dir_path(__FILE__);
 require_once $path . "vendor/autoload.php";
