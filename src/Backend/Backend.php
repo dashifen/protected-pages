@@ -3,6 +3,8 @@
 namespace Dashifen\ProtectedPages\Backend;
 
 use Dashifen\ProtectedPages\Includes\Controller;
+use Dashifen\ProtectedPages\Includes\Activator;
+use Dashifen\ProtectedPages\Includes\Deactivator;
 
 class Backend {
 	
@@ -14,14 +16,20 @@ class Backend {
 	/**
 	 * ProtectedPagesAdmin constructor.
 	 *
-	 * The $controller parameter is technically optional, but should always
-	 * be used except when this object is instantiated within the activator,
-	 * deactivator, or uninstallation objects.
-	 *
 	 * @param Controller $controller
 	 */
-	public function __construct(Controller $controller = null) {
+	public function __construct(Controller $controller) {
 		$this->controller = $controller;
+	}
+	
+	public function activate(): void {
+		$activator = new Activator($this->controller);
+		$activator->activate();
+	}
+	
+	public function deactivate(): void {
+		$deactivator = new Deactivator($this->controller);
+		$deactivator->deactivate();
 	}
 	
 	/**
@@ -165,5 +173,91 @@ class Backend {
 			"edit_pages",
 			"post-new.php?post_type=" . $postTypeSlug
 		);
+	}
+	
+	/**
+	 * Registers the Protector role
+	 *
+	 * @return void
+	 */
+	public function registerProtectorRole(): void {
+		
+		// the protector role represents a user's account who should
+		// have access to the Protected Pages.  in fact, that's all it
+		// gets.  the application account for this plugin uses this
+		// role.
+		
+		add_role($this->controller->getProtectorRole(), "Protector", [
+			"read_private_pages" => true,
+		]);
+	}
+	
+	/**
+	 * Removes the Protector role from various <select> elements
+	 *
+	 * @param array $roles
+	 *
+	 * @return array
+	 */
+	public function removeProtectorFromRoleSelector($roles): array {
+		
+		// not much to say here - we remove the role from our list of
+		// $roles that we added in the prior method.
+		
+		unset($roles[$this->controller->getProtectorRole()]);
+		return $roles;
+	}
+	
+	public function removeProtectorFromUserViews($views): array {
+		
+		// this method does the same thing as the prior one, but we leave
+		// it separate in case we need to do something different later.
+		// for now, we'll just call that one here.
+		
+		return $this->removeProtectorFromRoleSelector($views);
+	}
+	
+	/**
+	 * Adds the settings page for our plugin to the Dashboard menu
+	 *
+	 * @return void
+	 */
+	public function addPostTypeSettings(): void {
+		$postTypeSlug = $this->controller->getPostTypeSlug();
+		$postType = get_post_type_object($postTypeSlug);
+		
+		// we need to tell WordPress how to show our settings and
+		// how to save them.  we could circumvent this by using the
+		// WordPress Settings API, but I've not had much success
+		// with it in the past.  so, for now, we'll do things this
+		// way.
+		
+		$showCallback = [$this, "showPostTypeSettings"];
+		$saveCallback = [$this, "savePostTypeSettings"];
+		
+		$hook = add_options_page(
+			$postType->labels->singular_name . " Settings",
+			$postType->labels->menu_name,
+			"manage_options",
+			$postTypeSlug,
+			$showCallback
+		);
+		
+		add_action("load-$hook", $saveCallback);
+	}
+	
+	public function savePostTypeSettings() {
+		$slug = $this->controller->getSettingsSlug();
+		
+		// if our settings were posted here and the referring nonce is
+		// accurate, then we'll proceed.
+		
+		if (isset($_POST[$slug]) && check_admin_referer("save-$slug")) {
+		
+		}
+	}
+	
+	public function showPostTypeSettings() {
+		require_once(plugin_dir_path(__FILE__) . "partials/settings.php");
 	}
 }
