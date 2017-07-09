@@ -2,9 +2,11 @@
 
 namespace Dashifen\ProtectedPages\Backend;
 
-use Dashifen\ProtectedPages\Includes\Controller;
 use Dashifen\ProtectedPages\Includes\Activator;
+use Dashifen\ProtectedPages\Includes\Controller;
 use Dashifen\ProtectedPages\Includes\Deactivator;
+use \WP_Error as WP_Error;
+use \WP_User as WP_User;
 
 class Backend {
 	
@@ -94,7 +96,7 @@ class Backend {
 				"thumbnail",
 				"revisions",
 				"custom-fields",
-				"page-attributes"
+				"page-attributes",
 			],
 			"hierarchical"        => false,
 			"show_in_nav_menus"   => false,
@@ -113,9 +115,9 @@ class Backend {
 			// don't want that to happen.  so, we leave these true and
 			// mess with templates in the Frontend object.
 			
-			"publicly_queryable"  => true,
-			"has_archive"         => true,
-			"public"              => true,
+			"publicly_queryable" => true,
+			"has_archive"        => true,
+			"public"             => true,
 			
 			// here's where the REST API magic happens.  the show_in_rest
 			// flag indicates that this post type should be available via
@@ -123,8 +125,8 @@ class Backend {
 			// we want.  so, the API for these posts will be found at the
 			// following endpoint:  /wp-json/wp/v2/protected-pages.
 			
-			"show_in_rest"        => true,
-			"rest_base"           => "protected-pages",
+			"show_in_rest" => true,
+			"rest_base"    => "protected-pages",
 		];
 		
 		register_post_type($this->controller->getPostTypeSlug(), $args);
@@ -147,7 +149,6 @@ class Backend {
 	 * @return void
 	 */
 	public function addPostTypeToPagesMenu(): void {
-		
 		
 		
 		// in our registration of our post type above, we specify that
@@ -193,22 +194,6 @@ class Backend {
 	}
 	
 	/**
-	 * Removes the Protector role from various <select> elements
-	 *
-	 * @param array $roles
-	 *
-	 * @return array
-	 */
-	public function removeProtectorFromRoleSelector($roles): array {
-		
-		// not much to say here - we remove the role from our list of
-		// $roles that we added in the prior method.
-		
-		unset($roles[$this->controller->getProtectorRole()]);
-		return $roles;
-	}
-	
-	/**
 	 * Removes the Protector role from the user list filtering links
 	 *
 	 * @param $views
@@ -230,10 +215,28 @@ class Backend {
 		// string for All users, decrements, and returns it.
 		
 		$views["all"] = preg_replace_callback("/(\d+)/",
-			function($x) { return --$x[0];},
+			function($x) {
+				return --$x[0];
+			},
 			$views["all"]);
 		
 		return $views;
+	}
+	
+	/**
+	 * Removes the Protector role from various <select> elements
+	 *
+	 * @param array $roles
+	 *
+	 * @return array
+	 */
+	public function removeProtectorFromRoleSelector($roles): array {
+		
+		// not much to say here - we remove the role from our list of
+		// $roles that we added in the prior method.
+		
+		unset($roles[$this->controller->getProtectorRole()]);
+		return $roles;
 	}
 	
 	/**
@@ -251,6 +254,51 @@ class Backend {
 		
 		$queryParameters["role__not_in"] = [$this->controller->getProtectorRole()];
 		return $queryParameters;
+	}
+	
+	/**
+	 * Checks to see if our Protector is logging in and stops them if so
+	 *
+	 * @param WP_User|WP_Error|null $user
+	 * @param string                $username
+	 *
+	 * @return WP_User|WP_Error|null
+	 */
+	public function preventProtectorLogin($user, string $username) {
+		
+		// in here, we want to see if $username matches the name of our
+		// Protector.  if so, we want to prevent this login.
+		
+		$pluginName = $this->controller->getPluginName();
+		$protectorId = get_option($pluginName . "-protector", 0);
+		
+		if ($protectorId !== 0) {
+			$protector = new WP_User($protectorId);
+			
+			// now, if our user's login name and the $username parameter
+			// match, then it's out Protector trying to log in.  but, we
+			// want to let it in if this is a REST request.  so, if they
+			// match and the REST_REQUEST constant is not defined, then
+			// we return an error; otherwise, we'll just let WordPress
+			// handle things.
+			
+			if ($protector->user_login === $username && !defined("REST_REQUEST")) {
+				
+				// if we have a matching username, then we want to return
+				// a WP_Error object which'll let the WordPress ecosystem
+				// know that there's a problem.  we stole this error from
+				// WordPress core.
+				
+				return new WP_Error('invalid_username',
+					'<strong>ERROR</strong>: Invalid username.' .
+					' <a href="' . wp_lostpassword_url() . '">' .
+					'Lost your password?' .
+					'</a>'
+				);
+			}
+		}
+		
+		return $user;
 	}
 	
 	/**
@@ -349,6 +397,64 @@ class Backend {
 	}
 	
 	/**
+	 * Displays admin notices about bad settings
+	 *
+	 * @param array $errors
+	 *
+	 * @return void
+	 */
+	private function displayErrors(array $errors): void {
+		
+		// at the moment, we don't actually need $errors because there's
+		// only one field:  authorizedSites.  so, if we're here, then at
+		// least one of their entries wasn't a URL.
+		
+		add_action("admin_notices", function() {
+			
+			echo <<< MESSAGE
+				<div class="notice notice-error">
+					<h3>Unable to Save Settings</hd>
+					<p>At least one of the sites you entered below does
+					not appear to be a valid URL.  Please double-check
+					your entries, make the necessary changes, and click
+					the button to save them again.</p>
+				</div>
+MESSAGE;
+		
+		});
+	}
+	
+	/**
+	 * Displays an admin notice about successfully saved settings
+	 *
+	 * @return void
+	 */
+	private function displaySuccess(): void {
+		add_action("admin_notices", function() {
+			
+			echo <<< MESSAGE
+				<div class="notice notice-success">
+					<h3>Settings Saved</h3>
+					<p>Your entries have been saved in the database, and
+					they've been re-displayed below for your review.</p>
+				</div>
+MESSAGE;
+		
+		});
+	}
+	
+	public function showPostTypeSettings() {
+		
+		// my IDE flags a warning if we try to require the our settings
+		// page since it can't resolve the plugins_dir_path() function
+		// call.  hence the use of the variable, which the IDE simply
+		// ignores.
+		
+		$file = plugin_dir_path(__FILE__) . "partials/settings.php";
+		require_once $file;
+	}
+	
+	/**
 	 * @param string $sites
 	 *
 	 * @return array
@@ -383,7 +489,7 @@ class Backend {
 		
 		foreach ($sites as $site) {
 			if (!empty($site) && !filter_var($site, FILTER_VALIDATE_URL)) {
-					
+				
 				// if even one URL is invalid, then the whole entry will
 				// need some work.  so, we'll return false here.
 				
@@ -418,63 +524,5 @@ class Backend {
 		}
 		
 		return $sites;
-	}
-	
-	/**
-	 * Displays admin notices about bad settings
-	 *
-	 * @param array $errors
-	 *
-	 * @return void
-	 */
-	private function displayErrors(array $errors): void {
-		
-		// at the moment, we don't actually need $errors because there's
-		// only one field:  authorizedSites.  so, if we're here, then at
-		// least one of their entries wasn't a URL.
-		
-		add_action("admin_notices", function() {
-
-			echo <<< MESSAGE
-				<div class="notice notice-error">
-					<h3>Unable to Save Settings</hd>
-					<p>At least one of the sites you entered below does
-					not appear to be a valid URL.  Please double-check
-					your entries, make the necessary changes, and click
-					the button to save them again.</p>
-				</div>
-MESSAGE;
-
-		});
-	}
-	
-	/**
-	 * Displays an admin notice about successfully saved settings
-	 *
-	 * @return void
-	 */
-	private function displaySuccess(): void {
-		add_action("admin_notices", function() {
-			
-			echo <<< MESSAGE
-				<div class="notice notice-success">
-					<h3>Settings Saved</h3>
-					<p>Your entries have been saved in the database, and
-					they've been re-displayed below for your review.</p>
-				</div>
-MESSAGE;
-
-		});
-	}
-	
-	public function showPostTypeSettings() {
-		
-		// my IDE flags a warning if we try to require the our settings
-		// page since it can't resolve the plugins_dir_path() function
-		// call.  hence the use of the variable, which the IDE simply
-		// ignores.
-		
-		$file = plugin_dir_path(__FILE__) . "partials/settings.php";
-		require_once $file;
 	}
 }
