@@ -208,13 +208,49 @@ class Backend {
 		return $roles;
 	}
 	
+	/**
+	 * Removes the Protector role from the user list filtering links
+	 *
+	 * @param $views
+	 *
+	 * @return array
+	 */
 	public function removeProtectorFromUserViews($views): array {
 		
-		// this method does the same thing as the prior one, but we leave
-		// it separate in case we need to do something different later.
-		// for now, we'll just call that one here.
+		// this method actually has two purposes:  removing the Protector
+		// from our view and reducing the count of All users by one (to
+		// further hide evidence of the Protector).  the second purpose is
+		// easier:  we simply unset it from the list.  for that, we can
+		// use the prior method for the moment.
 		
-		return $this->removeProtectorFromRoleSelector($views);
+		$views = $this->removeProtectorFromRoleSelector($views);
+		
+		// we can use preg_replace_callback() to reduce the count of All
+		// users.  our callback simply grabs the matched number within the
+		// string for All users, decrements, and returns it.
+		
+		$views["all"] = preg_replace_callback("/(\d+)/",
+			function($x) { return --$x[0];},
+			$views["all"]);
+		
+		return $views;
+	}
+	
+	/**
+	 * Alters WP_User_Query parameters to hide Protectors
+	 *
+	 * @param array $queryParameters
+	 *
+	 * @return array
+	 */
+	public function removeProtectorFromUserQueries(array $queryParameters): array {
+		
+		// the WP_User_Query object conveniently provides a role__not_in
+		// parameter to exclude users from the results.  we can use this to
+		// exclude Protectors.
+		
+		$queryParameters["role__not_in"] = [$this->controller->getProtectorRole()];
+		return $queryParameters;
 	}
 	
 	/**
@@ -258,6 +294,13 @@ class Backend {
 	}
 	
 	public function showPostTypeSettings() {
-		require_once(plugin_dir_path(__FILE__) . "partials/settings.php");
+
+		// my IDE flags a warning if we try to require the our settings
+		// page since it can't resolve the plugins_dir_path() function
+		// call.  hence the use of the variable, which the IDE simply
+		// ignores.
+		
+		$file = plugin_dir_path(__FILE__) . "partials/settings.php";
+		require_once $file;
 	}
 }

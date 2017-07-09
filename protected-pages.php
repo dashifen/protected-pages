@@ -23,8 +23,14 @@ preg_match("/Version: ([\.0-9]+)/", file_get_contents(__FILE__), $matches);
 define("PROTECTED_PAGES_VERSION", $matches[1]);
 
 // now, there's two files to include:  our PSR-4 autoloader and the
-// PHP file which initializes our plugin.
+// PHP file which initializes our plugin.  my IDE gets confused when
+// trying to include these files as it finds the $path variable
+// incomprehensible in this context.  but, it ignores dynamic includes
+// so we'll do that instead.
 
 $path = plugin_dir_path(__FILE__);
-require_once $path . "vendor/autoload.php";
-require_once $path . "src/protected-pages.php";
+$autoloader = $path . "vendor/autoload.php";
+$plugin = $path . "vendor/protected-pages.php";
+
+require_once $autoloader;
+require_once $plugin;

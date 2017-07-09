@@ -120,6 +120,7 @@ class Controller {
 		$this->loader->addAction("init", $backend, "registerProtectorRole");
 		$this->loader->addFilter("editable_roles", $backend, "removeProtectorFromRoleSelector");
 		$this->loader->addFilter("views_users", $backend, "removeProtectorFromUserViews");
+		$this->loader->addFilter("users_list_table_query_args", $backend, "removeProtectorFromUserQueries");
 		
 		// finally, we'll need a settings page for our plugin.  this is
 		// where we specify the list of other URLs from which we can get
