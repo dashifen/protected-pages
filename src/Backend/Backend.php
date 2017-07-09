@@ -289,12 +289,186 @@ class Backend {
 		// accurate, then we'll proceed.
 		
 		if (isset($_POST[$slug]) && check_admin_referer("save-$slug")) {
-		
+			
+			// the only thing we need to check on here is that we have
+			// domains in the appropriate format if they've sent us any
+			// authorized sites.  it's technically acceptable to send
+			// zero sites if you want to cut off access to the Protected
+			// Pages.
+			
+			$settings = $this->controller->getSettings();
+			
+			// the sites are sent here as a string separated by new lines.
+			// we'll break that into an array so that we can look at each
+			// of them individually.
+			
+			$errors = [];
+			foreach ($settings as $setting => $value) {
+				
+				// we want to create three variable method names here:
+				// a transformer to make any necessary changes to the
+				// data sent to use by the visitor, a validator to be
+				// sure it's correct, and a sanitizer to prepare it to
+				// be saved in the database.
+				
+				$temp = ucfirst($setting);
+				$transformer = "transform$temp";
+				$validator = "validate$temp";
+				$sanitizer = "sanitize$temp";
+				
+				// using variable method calls, we can call the above
+				// prepared methods to process the visitor's entries.
+				
+				$value = $this->{$transformer}($value);
+				
+				if ($this->{$validator}($value)) {
+					$settings[$setting] = $this->{$sanitizer}($value);
+				} else {
+					$errors[$setting] = true;
+				}
+			}
+			
+			// we have two methods below that'll help us show the visitor
+			// what we discovered with our validators above.  the one we
+			// call is based on whether or not we encountered problems.
+			
+			if (sizeof($errors) > 0) {
+				$this->displayErrors($errors);
+			} else {
+				$this->displaySuccess();
+			}
+			
+			// regardless of whether these settings are erroneous, we'll
+			// save them in the database.  then, we expect the visitor to
+			// fix them.  if they don't, then the Frontend object is smart
+			// enough to ensure that nothing works.
+			
+			update_option($this->controller->getSettingsSlug(), $settings);
+			unset($_POST);
 		}
 	}
 	
-	public function showPostTypeSettings() {
+	/**
+	 * @param string $sites
+	 *
+	 * @return array
+	 */
+	private function transformAuthorizedSites(string $sites): array {
+		
+		// when the sites come to us, they're a \n separated string.
+		// we want to convert them to an array.  first, we explode(),
+		// but that leaves the \n at the end of each site.  we'll
+		// get rid of those, too.  finally, we'll use array_filter()
+		// to get rid of blanks.
+		
+		$sites = explode("\n", $sites);
+		$sites = array_map("trim", $sites);
+		return array_filter($sites);
+	}
+	
+	/**
+	 * Ensures that sites entered by visitor are valid URLs
+	 *
+	 * @param array $sites
+	 *
+	 * @return bool
+	 */
+	private function validateAuthorizedSites(array $sites): bool {
+		
+		// we'll assume that everything is okay until proven otherwise.
+		// luckily, we can use the PHP filter_var() function to do most
+		// of the work here.  notice that we skip empty sites; likely
+		// it's a blank line at the end of the textarea if the visitor
+		// hit enter after the last domain.
+		
+		foreach ($sites as $site) {
+			if (!empty($site) && !filter_var($site, FILTER_VALIDATE_URL)) {
+					
+				// if even one URL is invalid, then the whole entry will
+				// need some work.  so, we'll return false here.
+				
+				return false;
+			}
+		}
+		
+		// if we looped over all the sites and all of them validated,
+		// then this entry is valid.  we can return true.
+		
+		return true;
+	}
+	
+	/**
+	 * Sanitizes visitor entry for saving in the database.
+	 *
+	 * @param array $sites
+	 *
+	 * @return array
+	 */
+	private function sanitizeAuthorizedSites(array $sites): array {
+		
+		// we already know that our $sites are valid URLs because the
+		// prior method handles that for us.  here, we simply want to
+		// ensure that all of our $sites are simply domains with
+		// protocols, no file or query string or any of that
+		// nonsense.
+		
+		foreach ($sites as &$site) {
+			$site = vsprintf("%s://%s", parse_url($site));
+			$site = sanitize_text_field($site);
+		}
+		
+		return $sites;
+	}
+	
+	/**
+	 * Displays admin notices about bad settings
+	 *
+	 * @param array $errors
+	 *
+	 * @return void
+	 */
+	private function displayErrors(array $errors): void {
+		
+		// at the moment, we don't actually need $errors because there's
+		// only one field:  authorizedSites.  so, if we're here, then at
+		// least one of their entries wasn't a URL.
+		
+		add_action("admin_notices", function() {
 
+			echo <<< MESSAGE
+				<div class="notice notice-error">
+					<h3>Unable to Save Settings</hd>
+					<p>At least one of the sites you entered below does
+					not appear to be a valid URL.  Please double-check
+					your entries, make the necessary changes, and click
+					the button to save them again.</p>
+				</div>
+MESSAGE;
+
+		});
+	}
+	
+	/**
+	 * Displays an admin notice about successfully saved settings
+	 *
+	 * @return void
+	 */
+	private function displaySuccess(): void {
+		add_action("admin_notices", function() {
+			
+			echo <<< MESSAGE
+				<div class="notice notice-success">
+					<h3>Settings Saved</h3>
+					<p>Your entries have been saved in the database, and
+					they've been re-displayed below for your review.</p>
+				</div>
+MESSAGE;
+
+		});
+	}
+	
+	public function showPostTypeSettings() {
+		
 		// my IDE flags a warning if we try to require the our settings
 		// page since it can't resolve the plugins_dir_path() function
 		// call.  hence the use of the variable, which the IDE simply
