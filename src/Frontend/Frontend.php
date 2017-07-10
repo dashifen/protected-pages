@@ -3,11 +3,9 @@
 namespace Dashifen\ProtectedPages\Frontend;
 
 use Dashifen\ProtectedPages\Includes\Controller;
-use WP_Error as WP_Error;
-use WP_Post as WP_Post;
-use WP_REST_Request as WP_REST_Request;
-use WP_REST_Response as WP_REST_Response;
-use WP_User as WP_User;
+use \WP_REST_Response as WP_REST_Response;
+use \WP_REST_Request as WP_REST_Request;
+use \WP_Post as WP_Post;
 
 class Frontend {
 	
@@ -68,12 +66,17 @@ class Frontend {
 	public function confirmPostTypeAccess(WP_REST_Response $response, WP_Post $post, WP_REST_Request $request) {
 		
 		// this method filters our $response parameter creating an error
-		// response when either (a) no one is logged in or (b) when the person
-		// who is logged in cannot read private pages.
+		// response when either (a) no one is logged in, (b) when the person
+		// who is logged in cannot read private pages, (c) when our request
+		// isn't from an authorized domain.
 		
 		// TODO: create custom capability for reading protected pages
 		
-		if (!is_user_logged_in() || !current_user_can("read_private_pages")) {
+		if (
+			!is_user_logged_in() ||
+			!current_user_can("read_private_pages") ||
+			!$this->isSiteAuthorized($request)
+		) {
 			
 			// if we're in here, then we need to send an error response.
 			// ordinarily, we'd send a 401 Unauthorized message in this sort
@@ -91,5 +94,23 @@ class Frontend {
 		}
 		
 		return $response;
+	}
+	
+	/**
+	 * Given a request, determines if it's domain is authorized
+	 *
+	 * @param WP_REST_Request $request
+	 *
+	 * @return bool
+	 */
+	private function isSiteAuthorized(WP_REST_Request $request): bool {
+		$settings = $this->controller->getSettings();
+		$site = $request->get_header("Origin");
+		
+		// checking to see if our request originated from an authorized
+		// site is easy:  we get the Origin: header and see if it's in
+		// the authorizedSites array in our settings.
+		
+		return in_array($site, $settings["authorizedSites"]);
 	}
 }
