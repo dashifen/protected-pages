@@ -3,7 +3,7 @@
 Plugin Name: Protected Pages
 Plugin URI: https://github.com/dashifen/protected-pages
 Description: A WordPress plugin to create protected pages available from from a list of specified domains.
-Version: 1.0.0
+Version: 1.1.0
 Author: David Dashifen Kees
 Author URI: https://dashifen.com
 */
@@ -30,7 +30,7 @@ define("PROTECTED_PAGES_VERSION", $matches[1]);
 
 $path = plugin_dir_path(__FILE__);
 $autoloader = $path . "vendor/autoload.php";
-$plugin = $path . "vendor/protected-pages.php";
+$plugin = $path . "src/protected-pages.php";
 
 require_once $autoloader;
 require_once $plugin;

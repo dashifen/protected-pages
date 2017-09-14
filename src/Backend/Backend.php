@@ -2,47 +2,21 @@
 
 namespace Dashifen\ProtectedPages\Backend;
 
-use Dashifen\ProtectedPages\Includes\Activator;
-use Dashifen\ProtectedPages\Includes\Controller;
-use Dashifen\ProtectedPages\Includes\Deactivator;
-use \WP_Error as WP_Error;
-use \WP_User as WP_User;
+use Dashifen\WPPB\Component\Backend\AbstractBackend;
+use Dashifen\WPPB\Component\Backend\BackendTraits\PostTypeTrait;
+use Dashifen\WPPB\Component\Backend\BackendTraits\RoleTrait;
+use WP_Error as WP_Error;
+use WP_User as WP_User;
 
-class Backend {
+class Backend extends AbstractBackend {
+	use PostTypeTrait, RoleTrait;
 	
 	/**
-	 * @var Controller
-	 */
-	protected $controller;
-	
-	/**
-	 * ProtectedPagesAdmin constructor.
-	 *
-	 * @param Controller $controller
-	 */
-	public function __construct(Controller $controller) {
-		$this->controller = $controller;
-	}
-	
-	public function activate(): void {
-		$activator = new Activator($this->controller);
-		$activator->activate();
-	}
-	
-	public function deactivate(): void {
-		$deactivator = new Deactivator($this->controller);
-		$deactivator->deactivate();
-	}
-	
-	/**
-	 * Enqueues the CSS styles for this plugin
+	 * Registers our post type, natch, with special thanks to
+	 * https://generatewp.com/post-type.
 	 *
 	 * @return void
 	 */
-	public function enqueueStyles(): void {
-		wp_enqueue_style($this->controller->getPluginName(), plugin_dir_url(__FILE__) . "css/protected-pages-backend.css", [], filemtime(plugin_dir_path(__FILE__) . "css/protected-pages-backend.css"), "all");
-	}
-	
 	public function registerPostType(): void {
 		$labels = [
 			"singular_name"         => "Protected Page",
@@ -75,20 +49,20 @@ class Backend {
 		];
 		
 		$rewrite = [
-			"slug"       => "protected-pages",
+			"slug"       => $this->getPostTypeSlug(),
 			"with_front" => true,
 			"pages"      => true,
 			"feeds"      => true,
 		];
 		
 		$args = [
-			"labels"              => $labels,
-			"rewrite"             => $rewrite,
-			"capability_type"     => "page",
-			"label"               => "Protected Page",
-			"description"         => "Content that cannot be seen on this site but may be seen on others.",
-			"menu_icon"           => "dashicons-lock",
-			"supports"            => [
+			"labels"          => $labels,
+			"rewrite"         => $rewrite,
+			"capability_type" => "page",
+			"label"           => "Protected Page",
+			"description"     => "Content that cannot be seen on this site but may be seen on others.",
+			"menu_icon"       => "dashicons-lock",
+			"supports"        => [
 				"title",
 				"editor",
 				"excerpt",
@@ -98,6 +72,7 @@ class Backend {
 				"custom-fields",
 				"page-attributes",
 			],
+			
 			"hierarchical"        => false,
 			"show_in_nav_menus"   => false,
 			"show_in_menu"        => false,
@@ -129,7 +104,51 @@ class Backend {
 			"rest_base"    => "protected-pages",
 		];
 		
-		register_post_type($this->controller->getPostTypeSlug(), $args);
+		register_post_type($this->getPostType(), $args);
+	}
+	
+	/**
+	 * I like my CPTs to have singular names but plural slugs in
+	 * the URL.  so, here we pluralize the above post type name for
+	 * that purpose.
+	 *
+	 * @return string
+	 */
+	public function getPostTypeSlug(): string {
+		return "protected-pages";
+	}
+	
+	/**
+	 * This method is used wherever we need to refer to this
+	 * plugin's custom post type.  It avoids accidentally spelling
+	 * it wrong.
+	 *
+	 * @return string
+	 */
+	public function getPostType(): string {
+		return "protected-page";
+	}
+	
+	/**
+	 * Enqueues the CSS styles for this plugin
+	 *
+	 * @return void
+	 */
+	protected function enqueueStyles(): void {
+		$url = plugin_dir_url(__FILE__) . "Assets/css";
+		$path = plugin_dir_path(__FILE__) . "Assets/css";
+		$directory = new \RecursiveDirectoryIterator($path);
+		$files = new \RecursiveIteratorIterator($directory);
+		
+		foreach ($files as $file) {
+			/** @var \SplFileInfo $file */
+			
+			if ($file->getExtension() === "css") {
+				$filename = $file->getFilename();
+				wp_enqueue_style($filename, $url . "/$filename", [],
+					filemtime($path . "/$filename"), "all");
+			}
+		}
 	}
 	
 	/**
@@ -137,7 +156,7 @@ class Backend {
 	 *
 	 * @return void
 	 */
-	public function updatePageLabels(): void {
+	protected function updatePageLabels(): void {
 		$postType = get_post_type_object("page");
 		$postType->labels->all_items = "All Unprotected Pages";
 		$postType->labels->add_new = "Add New Page";
@@ -148,7 +167,7 @@ class Backend {
 	 *
 	 * @return void
 	 */
-	public function addPostTypeToPagesMenu(): void {
+	protected function addPostTypeToPagesMenu(): void {
 		
 		
 		// in our registration of our post type above, we specify that
@@ -156,7 +175,7 @@ class Backend {
 		// to add it as a submenu of the Pages menu.  this method does
 		// that.
 		
-		$postTypeSlug = $this->controller->getPostTypeSlug();
+		$postTypeSlug = $this->getPostTypeSlug();
 		$postType = get_post_type_object($postTypeSlug);
 		
 		add_submenu_page(
@@ -181,16 +200,40 @@ class Backend {
 	 *
 	 * @return void
 	 */
-	public function registerProtectorRole(): void {
+	protected function registerProtectorRole(): void {
 		
 		// the protector role represents a user's account who should
 		// have access to the Protected Pages.  in fact, that's all it
 		// gets.  the application account for this plugin uses this
 		// role.
 		
-		add_role($this->controller->getProtectorRole(), "Protector", [
-			"read_private_pages" => true,
-		]);
+		add_role(
+			$this->getRoleSlug(),
+			$this->getRoleName(),
+			["read_protected_pages" => true]
+		);
+	}
+	
+	/**
+	 * Like our post type, this makes sure we always get the same string
+	 * for our protector role.  otherwise, we could misspell it somewhere
+	 * releasing demons for the very pits of WordPress hell.
+	 *
+	 * @return string
+	 */
+	public function getRoleSlug(): string {
+		return "protector";
+	}
+	
+	/**
+	 * Here we just make a on-screen version for our user role slug.
+	 * That's not really a thing we need this time around, but the trait
+	 * requires the method be written and so we've written it.
+	 *
+	 * @return string
+	 */
+	public function getRoleName(): string {
+		return "Protector";
 	}
 	
 	/**
@@ -200,7 +243,7 @@ class Backend {
 	 *
 	 * @return array
 	 */
-	public function removeProtectorFromUserViews($views): array {
+	protected function removeProtectorFromUserViews($views): array {
 		
 		// this method actually has two purposes:  removing the Protector
 		// from our view and reducing the count of All users by one (to
@@ -215,7 +258,7 @@ class Backend {
 		// string for All users, decrements, and returns it.
 		
 		$views["all"] = preg_replace_callback("/(\d+)/",
-			function($x) {
+			function ($x) {
 				return --$x[0];
 			},
 			$views["all"]);
@@ -230,12 +273,12 @@ class Backend {
 	 *
 	 * @return array
 	 */
-	public function removeProtectorFromRoleSelector($roles): array {
+	protected function removeProtectorFromRoleSelector($roles): array {
 		
 		// not much to say here - we remove the role from our list of
 		// $roles that we added in the prior method.
 		
-		unset($roles[$this->controller->getProtectorRole()]);
+		unset($roles[$this->getRoleSlug()]);
 		return $roles;
 	}
 	
@@ -246,13 +289,13 @@ class Backend {
 	 *
 	 * @return array
 	 */
-	public function removeProtectorFromUserQueries(array $queryParameters): array {
+	protected function removeProtectorFromUserQueries(array $queryParameters): array {
 		
 		// the WP_User_Query object conveniently provides a role__not_in
 		// parameter to exclude users from the results.  we can use this to
 		// exclude Protectors.
 		
-		$queryParameters["role__not_in"] = [$this->controller->getProtectorRole()];
+		$queryParameters["role__not_in"] = [$this->getRoleSlug()];
 		return $queryParameters;
 	}
 	
@@ -264,12 +307,12 @@ class Backend {
 	 *
 	 * @return WP_User|WP_Error|null
 	 */
-	public function preventProtectorLogin($user, string $username) {
+	protected function preventProtectorLogin($user, string $username) {
 		
 		// in here, we want to see if $username matches the name of our
 		// Protector.  if so, we want to prevent this login.
 		
-		$pluginName = $this->controller->getPluginName();
+		$pluginName = $this->controller->getName();
 		$protectorId = get_option($pluginName . "-protector", 0);
 		
 		if ($protectorId !== 0) {
@@ -306,8 +349,8 @@ class Backend {
 	 *
 	 * @return void
 	 */
-	public function addPostTypeSettings(): void {
-		$postTypeSlug = $this->controller->getPostTypeSlug();
+	protected function addPostTypeSettings(): void {
+		$postTypeSlug = $this->getPostTypeSlug();
 		$postType = get_post_type_object($postTypeSlug);
 		
 		// we need to tell WordPress how to show our settings and
@@ -330,7 +373,7 @@ class Backend {
 		add_action("load-$hook", $saveCallback);
 	}
 	
-	public function savePostTypeSettings() {
+	protected function savePostTypeSettings() {
 		$slug = $this->controller->getSettingsSlug();
 		
 		// if our settings were posted here and the referring nonce is
@@ -380,11 +423,11 @@ class Backend {
 			// what we discovered with our validators above.  the one we
 			// call is based on whether or not we encountered problems.
 			
-			if (sizeof($errors) > 0) {
-				$this->displayErrors($errors);
-			} else {
-				$this->displaySuccess();
-			}
+			$method = sizeof($errors) === 0
+				? "displaySuccess"
+				: "displayErrors";
+			
+			$this->{$method}();
 			
 			// regardless of whether these settings are erroneous, we'll
 			// save them in the database.  then, we expect the visitor to
@@ -399,17 +442,15 @@ class Backend {
 	/**
 	 * Displays admin notices about bad settings
 	 *
-	 * @param array $errors
-	 *
 	 * @return void
 	 */
-	private function displayErrors(array $errors): void {
+	protected function displayErrors(): void {
 		
 		// at the moment, we don't actually need $errors because there's
 		// only one field:  authorizedSites.  so, if we're here, then at
 		// least one of their entries wasn't a URL.
 		
-		add_action("admin_notices", function() {
+		add_action("admin_notices", function () {
 			
 			echo <<< MESSAGE
 				<div class="notice notice-error">
@@ -420,7 +461,7 @@ class Backend {
 					the button to save them again.</p>
 				</div>
 MESSAGE;
-		
+			
 		});
 	}
 	
@@ -429,8 +470,8 @@ MESSAGE;
 	 *
 	 * @return void
 	 */
-	private function displaySuccess(): void {
-		add_action("admin_notices", function() {
+	protected function displaySuccess(): void {
+		add_action("admin_notices", function () {
 			
 			echo <<< MESSAGE
 				<div class="notice notice-success">
@@ -439,11 +480,11 @@ MESSAGE;
 					they've been re-displayed below for your review.</p>
 				</div>
 MESSAGE;
-		
+			
 		});
 	}
 	
-	public function showPostTypeSettings() {
+	protected function showPostTypeSettings() {
 		
 		// my IDE flags a warning if we try to require the our settings
 		// page since it can't resolve the plugins_dir_path() function
@@ -459,7 +500,7 @@ MESSAGE;
 	 *
 	 * @return array
 	 */
-	private function transformAuthorizedSites(string $sites): array {
+	protected function transformAuthorizedSites(string $sites): array {
 		
 		// when the sites come to us, they're a \n separated string.
 		// we want to convert them to an array.  first, we explode(),
@@ -479,7 +520,7 @@ MESSAGE;
 	 *
 	 * @return bool
 	 */
-	private function validateAuthorizedSites(array $sites): bool {
+	protected function validateAuthorizedSites(array $sites): bool {
 		
 		// we'll assume that everything is okay until proven otherwise.
 		// luckily, we can use the PHP filter_var() function to do most
@@ -510,7 +551,7 @@ MESSAGE;
 	 *
 	 * @return array
 	 */
-	private function sanitizeAuthorizedSites(array $sites): array {
+	protected function sanitizeAuthorizedSites(array $sites): array {
 		
 		// we already know that our $sites are valid URLs because the
 		// prior method handles that for us.  here, we simply want to
@@ -526,3 +567,4 @@ MESSAGE;
 		return $sites;
 	}
 }
+

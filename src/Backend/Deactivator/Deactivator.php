@@ -1,26 +1,16 @@
 <?php
 
-namespace Dashifen\ProtectedPages\Includes;
+namespace Dashifen\ProtectedPages\Backend\Deactivator;
+
+use Dashifen\ProtectedPages\Backend\Backend;
+use Dashifen\WPPB\Component\Backend\Deactivator\AbstractDeactivator;
 
 /**
  * Class Deactivator
  *
  * @package Dashifen\ProtectedPages\Includes
  */
-class Deactivator {
-	/**
-	 * @var Controller $controller
-	 */
-	protected $controller;
-	
-	/**
-	 * Activator constructor.
-	 *
-	 * @param Controller $controller
-	 */
-	public function __construct(Controller $controller) {
-		$this->controller = $controller;
-	}
+class Deactivator extends AbstractDeactivator {
 	
 	/**
 	 * the method called to execute behaviors needed to deactivate the plugin.
@@ -33,15 +23,17 @@ class Deactivator {
 		// user from the site and then delete the options related to that
 		// user's identity.
 		
-		$pluginName = $this->controller->getPluginName();
-		$userId = get_option($pluginName . "-protector");
+		/** @var Backend $backend */
 		
-		if ($userId !== false) {
+		$backend = $this->controller->getBackend();
+		$pluginName = $this->controller->getSanitizedName();
+		
+		if (($userId = get_option($pluginName . "-protector")) !== false) {
 			wp_delete_user($userId);
 		}
 		
-		remove_role($this->controller->getProtectorRole());
 		delete_option($pluginName . "-protector-password");
 		delete_option($pluginName . "-protector");
+		remove_role($backend->getRoleSlug());
 	}
 }

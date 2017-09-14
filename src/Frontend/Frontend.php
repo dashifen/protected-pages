@@ -2,33 +2,20 @@
 
 namespace Dashifen\ProtectedPages\Frontend;
 
-use Dashifen\ProtectedPages\Includes\Controller;
-use \WP_REST_Response as WP_REST_Response;
-use \WP_REST_Request as WP_REST_Request;
-use \WP_Post as WP_Post;
+use Dashifen\ProtectedPages\Backend\Backend;
+use Dashifen\WPPB\Component\AbstractComponent;
+use WP_REST_Request as WP_REST_Request;
+use WP_REST_Response as WP_REST_Response;
+use WP_Post as WP_Post;
 
-class Frontend {
-	
-	/**
-	 * @var Controller
-	 */
-	protected $controller;
-	
-	/**
-	 * ProtectedPagesPublic constructor.
-	 *
-	 * @param Controller $controller
-	 */
-	public function __construct(Controller $controller) {
-		$this->controller = $controller;
-	}
+class Frontend extends AbstractComponent {
 	
 	/**
 	 * @param string $template
 	 *
 	 * @return string
 	 */
-	public function preventProtectedAccess(string $template): string {
+	protected function preventProtectedAccess(string $template): string {
 		
 		// to truly make this content "protected" (for our definition of
 		// protected) we need to be sure that it cannot be displayed by
@@ -52,7 +39,11 @@ class Frontend {
 		// our Controller and then use the appropriate WordPress functions
 		// that determine what sort of query has been performed.
 		
-		$postType = $this->controller->getPostTypeSlug();
+		/** @var Backend $backend */
+		
+		$backend = $this->controller->getBackend();
+		$postType = $backend->getPostTypeSlug();
+		
 		return is_post_type_archive($postType) || is_singular($postType);
 	}
 	
@@ -63,7 +54,7 @@ class Frontend {
 	 *
 	 * @return WP_REST_Response
 	 */
-	public function confirmPostTypeAccess(WP_REST_Response $response, WP_Post $post, WP_REST_Request $request) {
+	protected function confirmPostTypeAccess(WP_REST_Response $response, WP_Post $post, WP_REST_Request $request) {
 		
 		// this method filters our $response parameter creating an error
 		// response when either (a) no one is logged in, (b) when the person

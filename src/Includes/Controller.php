@@ -2,108 +2,48 @@
 
 namespace Dashifen\ProtectedPages\Includes;
 
-use Dashifen\ProtectedPages\Frontend\Frontend;
+use Dashifen\ProtectedPages\Backend\Activator\Activator;
 use Dashifen\ProtectedPages\Backend\Backend;
+use Dashifen\ProtectedPages\Backend\Deactivator\Deactivator;
+use Dashifen\ProtectedPages\Backend\Uninstaller\Uninstaller;
+use Dashifen\ProtectedPages\Frontend\Frontend;
+use Dashifen\WPPB\Component\Backend\BackendInterface;
+use Dashifen\WPPB\Component\ComponentInterface;
+use Dashifen\WPPB\Controller\AbstractController;
 
-/**
- * Class ProtectedPages
- *
- * This object hooks our plugin into the WordPress actions and filters that
- * it requires to operate.
- *
- * @package Dashifen\ProtectedPages\Includes
- */
-class Controller {
+class Controller extends AbstractController {
+	/**
+	 * @var BackendInterface $backend
+	 */
+	protected $backend;
 	
 	/**
-	 * @var Loader $loader
+	 * @var ComponentInterface $frontend
 	 */
-	protected $loader;
+	protected $frontend;
 	
-	/**
-	 * @var string $pluginName
-	 */
-	protected $pluginName = "protected-pages";
-	
-	/**
-	 * @var string $postTypeSlug
-	 */
-	protected $postTypeSlug = "protected-page";
-	
-	/**
-	 * @var string $protectorRole
-	 */
-	protected $protectorRole = "protected-pages-protector";
-	
-	/**
-	 * @var string $settingsSlug
-	 */
-	protected $settingsSlug = "protected-pages-settings";
-	
-	/**
-	 * @var array $settingsDefault
-	 */
-	protected $settingsDefault = ["authorizedSites" => []];
-	
-	/**
-	 * @var string $version
-	 */
-	protected $version = PROTECTED_PAGES_VERSION;
-	
-	/**
-	 * ProtectedPages constructor.
-	 *
-	 * @param bool $init
-	 */
-	public function __construct(bool $init = true) {
-		
-		// most of the time, we do want to initialize the rest of our
-		// plugin.  but, if we're using this object from within our
-		// activator, deactivator, or uninstaller then we don't want
-		// to do all that work when it's not necessary.
-		
-		if ($init) {
-			$this->loader = new Loader();
-			$this->defineFrontendHooks();
-			$this->defineBackendHooks();
-		}
+	public function getName(): string {
+		return "Protected Pages";
 	}
 	
-	/**
-	 * Returns the settings for this plugin.
-	 *
-	 * @return array
-	 */
-	public function getSettings(): array {
-		
-		// this method returns our settings -- either the settings in the
-		// database or a new set of settings that have been posted to the
-		// server.
-		
-		$settings = !isset($_POST[$this->settingsSlug])
-			? get_option($this->settingsSlug, [])
-			: $_POST[$this->settingsSlug];
-		
-		// now, we want to ensure that we have, at minimum, the default
-		// settings listed above.  this ensures that we can operate the
-		// plugin without errors during the initial setup of its behaviors.
-		
-		$settings = wp_parse_args($settings, $this->settingsDefault);
-		return $settings;
+	public function getSettingsSlug(): string {
+		return "protected-pages-settings";
 	}
 	
-	/**
-	 * Defines the administrative hooks for this plugin
-	 *
-	 * @return void
-	 */
-	private function defineBackendHooks(): void {
-		$backend = new Backend($this);
+	protected function getDefaultSettings(): array {
 		
-		$plugin = sprintf("%s/%s.php", $this->pluginName, $this->pluginName);
+		// at this time, the only default setting for this plugin is
+		// the fact that the authorized sites setting must be an array
+		// but it starts out blank.  therefore:
 		
-		$this->loader->addAction("activate_$plugin", $backend, "activate");
-		$this->loader->addAction("deactivate_$plugin", $backend, "deactivate");
+		return [
+			"authorizedSites" => [],
+		];
+		
+	}
+	
+	protected function defineBackendHooks(): void {
+		$backend = $this->getBackend();
 		$this->loader->addAction("admin_enqueue_scripts", $backend, "enqueueStyles");
 		
 		// these actions register our post type and manipulate the Dashboard
@@ -131,59 +71,52 @@ class Controller {
 		$this->loader->addAction("admin_menu", $backend, "addPostTypeSettings");
 	}
 	
-	/**
-	 * Defines the public hooks for this plugin
-	 *
-	 * @return void
-	 */
-	private function defineFrontendHooks(): void {
-		$frontend = new Frontend($this);
+	public function getBackend(): BackendInterface {
+		
+		// this is just like the prior method, but we use our Backend
+		// object which is a little more complex in its construction.
+		// otherwise, it's basically the same as above.
+		
+		if (is_null($this->backend)) {
+			$this->backend = new Backend($this, new Activator($this),
+				new Deactivator($this), new Uninstaller($this));
+		}
+		
+		return $this->backend;
+	}
+	
+	public function getFilename(): string {
+		
+		// we made sure that the sanitized name of our plugin matches the
+		// folder and index filename for it.  so, we can return the plugin's
+		// filename as follows:
+		
+		$pluginName = $this->getSanitizedName();
+		return sprintf("%s/%s.php", $pluginName, $pluginName);
+	}
+	
+	protected function defineFrontendHooks(): void {
+		
+		/** @var Backend $backend */
+		
+		$backend = $this->getBackend();
+		$frontend = $this->getFrontend();
+		$postTypeSlug = $backend->getPostTypeSlug();
 		
 		$this->loader->addFilter("template_include", $frontend, "preventProtectedAccess");
-		$this->loader->addFilter("rest_prepare_{$this->postTypeSlug}", $frontend, "confirmPostTypeAccess", 10, 3);
+		$this->loader->addFilter("rest_prepare_$postTypeSlug", $frontend, "confirmPostTypeAccess", 10, 3);
 	}
 	
-	/**
-	 * @return string
-	 */
-	public function getPluginName(): string {
-		return $this->pluginName;
-	}
-	
-	/**
-	 * @return string
-	 */
-	public function getPostTypeSlug(): string {
-		return $this->postTypeSlug;
-	}
-	
-	/**
-	 * @return string
-	 */
-	public function getProtectorRole(): string {
-		return $this->protectorRole;
-	}
-	
-	/**
-	 * @return string
-	 */
-	public function getSettingsSlug(): string {
-		return $this->settingsSlug;
-	}
-	
-	/**
-	 * @return string
-	 */
-	public function getVersion(): string {
-		return $this->version;
-	}
-	
-	/**
-	 * Executes our loader"s run method which connects our plugin to WordPress
-	 *
-	 * @return void
-	 */
-	public function run(): void {
-		$this->loader->run();
+	public function getFrontend(): ComponentInterface {
+		
+		// if our frontend property has not yet been instantiated, then
+		// we do so here and return it.  otherwise, we just return the
+		// previously instantiated object.
+		
+		if (is_null($this->frontend)) {
+			$this->frontend = new Frontend($this);
+		}
+		
+		return $this->frontend;
 	}
 }

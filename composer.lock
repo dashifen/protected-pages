@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "046171d72397670d3de965eb4cedf5d3",
+    "content-hash": "363536a1cb345113222e6a5cc6275615",
     "packages": [
         {
             "name": "dashifen/exception",
@@ -43,6 +43,45 @@
             ],
             "description": "a base class for exceptions in Dashifen's other work",
             "time": "2017-06-01T13:18:01+00:00"
+        },
+        {
+            "name": "dashifen/wordpress-php7-plugin-boilerplate",
+            "version": "1.0.12-beta",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/dashifen/wordpress-php7-plugin-boilerplate.git",
+                "reference": "3797283f855e51ecbbd51facbf3dd9bf9a31c6ac"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/dashifen/wordpress-php7-plugin-boilerplate/zipball/3797283f855e51ecbbd51facbf3dd9bf9a31c6ac",
+                "reference": "3797283f855e51ecbbd51facbf3dd9bf9a31c6ac",
+                "shasum": ""
+            },
+            "require": {
+                "dashifen/exception": "^1",
+                "php": ">=7.1"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Dashifen\\WPPB\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "David Dashifen Kees",
+                    "email": "dashifen@dashifen.com",
+                    "homepage": "https://dashifen.com",
+                    "role": "developer"
+                }
+            ],
+            "description": "An object-oriented boilerplate for WordPress templates using features of PHP 7.1.",
+            "time": "2017-09-14T20:02:56+00:00"
         }
     ],
     "packages-dev": [],

@@ -1,28 +1,16 @@
 <?php
 
-namespace Dashifen\ProtectedPages\Includes;
+namespace Dashifen\ProtectedPages\Backend\Activator;
 
 use Dashifen\ProtectedPages\Backend\Backend;
+use Dashifen\WPPB\Component\Backend\Activator\AbstractActivator;
 
 /**
  * Class Activator
  *
  * @package Dashifen\ProtectedPages\Includes
  */
-class Activator {
-	/**
-	 * @var Controller $controller
-	 */
-	protected $controller;
-	
-	/**
-	 * Activator constructor.
-	 *
-	 * @param Controller $controller
-	 */
-	public function __construct(Controller $controller) {
-		$this->controller = $controller;
-	}
+class Activator extends AbstractActivator {
 	
 	/**
 	 * the method called to execute behaviors necessary on plugin activation.
@@ -38,7 +26,10 @@ class Activator {
 	 * @return void
 	 */
 	private function updatePermalinks(): void {
-		$plugin = new Backend($this->controller);
+		
+		/** @var Backend $plugin */
+		
+		$plugin = $this->controller->getBackend();
 		$plugin->registerPostType();
 		flush_rewrite_rules();
 	}
@@ -47,8 +38,11 @@ class Activator {
 	 * @return void
 	 */
 	private function createProtector(): void {
-		$pluginName = $this->controller->getPluginName();
-		$protectorRole = $this->controller->getProtectorRole();
+		/** @var Backend $backend */
+		
+		$backend = $this->controller->getBackend();
+		$pluginName = $this->controller->getSanitizedName();
+		$protectorRole = $backend->getRoleName();
 		$password = wp_generate_password(28, true);
 		
 		$user = [
