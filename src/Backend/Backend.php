@@ -9,6 +9,7 @@ use Dashifen\WPPB\Component\Backend\AbstractBackend;
 use Dashifen\WPPB\Component\Backend\Activator\ActivatorInterface;
 use Dashifen\WPPB\Component\Backend\Deactivator\DeactivatorInterface;
 use Dashifen\WPPB\Component\Backend\Uninstaller\UninstallerInterface;
+use Dashifen\WPPB\Controller\ControllerException;
 use Dashifen\WPPB\Controller\ControllerInterface;
 use Dashifen\WPPB\Loader\Hook\Hook;
 use WP_Error as WP_Error;
@@ -102,13 +103,25 @@ class Backend extends AbstractBackend {
 	 * @param array $roles
 	 *
 	 * @return array
+	 * @throws ControllerException
 	 */
 	protected function removeProtectorFromRoleSelector($roles): array {
 		
-		// not much to say here - we remove the role from our list of
-		// $roles that we added in the prior method.
+		// not much to say here - we ues the controller to get the
+		// slug for the role added by this plugin and then remove it
+		// from $roles.  even though there's only one such role, we
+		// get an array from getRoleSlugs() here.
 		
-		unset($roles[$this->getRoleSlug()]);
+		if (!method_exists($this->controller, "getRoleSlugs")) {
+			throw new ControllerException("Missing method: getRoleSlugs",
+				ControllerException::MISSING_METHOD);
+		}
+		
+		$removeThese = $this->controller->getRoleSlugs();
+		foreach ($removeThese as $removeThis) {
+			unset($roles[$removeThis]);
+		}
+		
 		return $roles;
 	}
 	
@@ -118,6 +131,7 @@ class Backend extends AbstractBackend {
 	 * @param array $queryParameters
 	 *
 	 * @return array
+	 * @throws ControllerException
 	 */
 	protected function removeProtectorFromUserQueries(array $queryParameters): array {
 		
@@ -125,7 +139,12 @@ class Backend extends AbstractBackend {
 		// parameter to exclude users from the results.  we can use this to
 		// exclude Protectors.
 		
-		$queryParameters["role__not_in"] = [$this->getRoleSlug()];
+		if (!method_exists($this->controller, "getRoleSlugs")) {
+			throw new ControllerException("Missing method: getRoleSlugs",
+				ControllerException::MISSING_METHOD);
+		}
+		
+		$queryParameters["role__not_in"] = $this->controller->getRoleSlugs();
 		return $queryParameters;
 	}
 	
