@@ -2,131 +2,46 @@
 
 namespace Dashifen\ProtectedPages\Backend;
 
+use Dashifen\ProtectedPages\Backend\Analyzers\Sanitizer\Sanitizer;
+use Dashifen\ProtectedPages\Backend\Analyzers\Transformer\Transformer;
+use Dashifen\ProtectedPages\Backend\Analyzers\Validator\Validator;
 use Dashifen\WPPB\Component\Backend\AbstractBackend;
-use Dashifen\WPPB\Component\Backend\BackendTraits\PostTypeTrait;
-use Dashifen\WPPB\Component\Backend\BackendTraits\RoleTrait;
+use Dashifen\WPPB\Component\Backend\Activator\ActivatorInterface;
+use Dashifen\WPPB\Component\Backend\Deactivator\DeactivatorInterface;
+use Dashifen\WPPB\Component\Backend\Uninstaller\UninstallerInterface;
+use Dashifen\WPPB\Controller\ControllerInterface;
+use Dashifen\WPPB\Loader\Hook\Hook;
 use WP_Error as WP_Error;
 use WP_User as WP_User;
 
 class Backend extends AbstractBackend {
-	use PostTypeTrait, RoleTrait;
+	/**
+	 * @var string $pluginUrl
+	 */
+	protected $pluginUrl;
 	
 	/**
-	 * Registers our post type, natch, with special thanks to
-	 * https://generatewp.com/post-type.
-	 *
-	 * @return void
+	 * @var string $pluginPath
 	 */
-	public function registerPostType(): void {
-		$labels = [
-			"singular_name"         => "Protected Page",
-			"name_admin_bar"        => "Protected Page",
-			"name"                  => "Protected Pages",
-			"menu_name"             => "Protected Pages",
-			"archives"              => "Protected Pages",
-			"attributes"            => "Protected Page Attributes",
-			"parent_item_colon"     => "Parent Page:",
-			"all_items"             => "All Protected Pages",
-			"add_new_item"          => "Add New Protected Page",
-			"add_new"               => "Add New Prot. Page",
-			"new_item"              => "New Protected Page",
-			"edit_item"             => "Edit Protected Page",
-			"update_item"           => "Update Protected Page",
-			"view_item"             => "View Protected Page",
-			"view_items"            => "View Protected Pages",
-			"search_items"          => "Search Protected Pages",
-			"not_found"             => "Not Found",
-			"not_found_in_trash"    => "Not found in Trash",
-			"featured_image"        => "Featured Image",
-			"set_featured_image"    => "Set featured image",
-			"remove_featured_image" => "Remove featured image",
-			"use_featured_image"    => "Use as featured image",
-			"insert_into_item"      => "Add to Protected Page",
-			"uploaded_to_this_item" => "Uploaded to this Protected Page",
-			"items_list"            => "Protected Pages list",
-			"items_list_navigation" => "Protected Pages list navigation",
-			"filter_items_list"     => "Filter Protected Pages list",
-		];
-		
-		$rewrite = [
-			"slug"       => $this->getPostTypeSlug(),
-			"with_front" => true,
-			"pages"      => true,
-			"feeds"      => true,
-		];
-		
-		$args = [
-			"labels"          => $labels,
-			"rewrite"         => $rewrite,
-			"capability_type" => "page",
-			"label"           => "Protected Page",
-			"description"     => "Content that cannot be seen on this site but may be seen on others.",
-			"menu_icon"       => "dashicons-lock",
-			"supports"        => [
-				"title",
-				"editor",
-				"excerpt",
-				"author",
-				"thumbnail",
-				"revisions",
-				"custom-fields",
-				"page-attributes",
-			],
-			
-			"hierarchical"        => false,
-			"show_in_nav_menus"   => false,
-			"show_in_menu"        => false,
-			"show_ui"             => true,
-			"show_in_admin_bar"   => true,
-			"can_export"          => true,
-			"exclude_from_search" => true,
-			"menu_position"       => 20,
-			
-			// one might think that, because we don't want our custom
-			// posts to be visible on the frontend of this site, we would
-			// set the next three flags to false.  but, when that's the
-			// case, going to the archive or singular slug for these
-			// types sometimes seems loads the index of the site and we
-			// don't want that to happen.  so, we leave these true and
-			// mess with templates in the Frontend object.
-			
-			"publicly_queryable" => true,
-			"has_archive"        => true,
-			"public"             => true,
-			
-			// here's where the REST API magic happens.  the show_in_rest
-			// flag indicates that this post type should be available via
-			// the API, and the rest_base string indicates the route that
-			// we want.  so, the API for these posts will be found at the
-			// following endpoint:  /wp-json/wp/v2/protected-pages.
-			
-			"show_in_rest" => true,
-			"rest_base"    => "protected-pages",
-		];
-		
-		register_post_type($this->getPostType(), $args);
-	}
+	protected $pluginPath;
 	
 	/**
-	 * I like my CPTs to have singular names but plural slugs in
-	 * the URL.  so, here we pluralize the above post type name for
-	 * that purpose.
+	 * Backend constructor.
 	 *
-	 * @return string
+	 * @param ControllerInterface  $controller
+	 * @param ActivatorInterface   $activator
+	 * @param DeactivatorInterface $deactivator
+	 * @param UninstallerInterface $uninstaller
 	 */
-	public function getPostTypeSlug(): string {
-		return "protected-pages";
-	}
-	
-	/**
-	 * This method is used wherever we need to refer to this
-	 * plugin's custom post type.  It avoids accidentally spelling
-	 * it wrong.
-	 *
-	 * @return string
-	 */
-	public function getPostType(): string {
-		return "protected-page";
+	public function __construct(
+		ControllerInterface $controller,
+		ActivatorInterface $activator,
+		DeactivatorInterface $deactivator,
+		UninstallerInterface $uninstaller
+	) {
+		parent::__construct($controller, $activator, $deactivator, $uninstaller);
+		$this->pluginPath = plugin_dir_path(__FILE__);
+		$this->pluginUrl = plugin_dir_url(__FILE__);
 	}
 	
 	/**
@@ -135,105 +50,20 @@ class Backend extends AbstractBackend {
 	 * @return void
 	 */
 	protected function enqueueStyles(): void {
-		$url = plugin_dir_url(__FILE__) . "Assets/css";
-		$path = plugin_dir_path(__FILE__) . "Assets/css";
-		$directory = new \RecursiveDirectoryIterator($path);
-		$files = new \RecursiveIteratorIterator($directory);
-		
-		foreach ($files as $file) {
-			/** @var \SplFileInfo $file */
-			
-			if ($file->getExtension() === "css") {
-				$filename = $file->getFilename();
-				wp_enqueue_style($filename, $url . "/$filename", [],
-					filemtime($path . "/$filename"), "all");
-			}
-		}
+		$url = $this->pluginUrl . "Assets/styles/backend.css";
+		$timestamp = filemtime($this->pluginPath . "Assets/styles/backend.css");
+		wp_enqueue_style("protected-pages-backend", $url, [], $timestamp);
 	}
 	
 	/**
-	 * Slightly alters the Pages menu of the Dashboard.
+	 * Enqueues the JS scripts for this plugin
 	 *
 	 * @return void
 	 */
-	protected function updatePageLabels(): void {
-		$postType = get_post_type_object("page");
-		$postType->labels->all_items = "All Unprotected Pages";
-		$postType->labels->add_new = "Add New Page";
-	}
-	
-	/**
-	 * Adds post type to Pages menu.
-	 *
-	 * @return void
-	 */
-	protected function addPostTypeToPagesMenu(): void {
-		
-		
-		// in our registration of our post type above, we specify that
-		// it should not be in the Dashboard's menu.  instead, we want
-		// to add it as a submenu of the Pages menu.  this method does
-		// that.
-		
-		$postTypeSlug = $this->getPostTypeSlug();
-		$postType = get_post_type_object($postTypeSlug);
-		
-		add_submenu_page(
-			"edit.php?post_type=page",
-			$postType->labels->name,
-			$postType->labels->all_items,
-			"edit_pages",
-			"edit.php?post_type=" . $postTypeSlug
-		);
-		
-		add_submenu_page(
-			"edit.php?post_type=page",
-			$postType->labels->name,
-			$postType->labels->add_new,
-			"edit_pages",
-			"post-new.php?post_type=" . $postTypeSlug
-		);
-	}
-	
-	/**
-	 * Registers the Protector role
-	 *
-	 * @return void
-	 */
-	protected function registerProtectorRole(): void {
-		
-		// the protector role represents a user's account who should
-		// have access to the Protected Pages.  in fact, that's all it
-		// gets.  the application account for this plugin uses this
-		// role.
-		
-		add_role(
-			$this->getRoleSlug(),
-			$this->getRoleName(),
-			["read_protected_pages" => true]
-		);
-	}
-	
-	/**
-	 * Like our post type, this makes sure we always get the same string
-	 * for our protector role.  otherwise, we could misspell it somewhere
-	 * releasing demons for the very pits of WordPress hell.
-	 *
-	 * @return string
-	 */
-	public function getRoleSlug(): string {
-		return "protector";
-	}
-	
-	/**
-	 * Here we just make a on-screen version for our user role slug.
-	 * That's not really a thing we need this time around, but the trait
-	 * requires the method be written and so we've written it.
-	 *
-	 * @return string
-	 */
-	public function getRoleName(): string {
-		return "Protector";
+	protected function enqueueScripts(): void {
+		$url = $this->pluginUrl . "Assets/scripts/alter-visibility.js";
+		$timestamp = filemtime($this->pluginPath . "Assets/scripts/alter-visibility.js");
+		wp_enqueue_script("protected-pages-alter-visibility", $url, [], $timestamp);
 	}
 	
 	/**
@@ -349,37 +179,88 @@ class Backend extends AbstractBackend {
 	 *
 	 * @return void
 	 */
-	protected function addPostTypeSettings(): void {
-		$postTypeSlug = $this->getPostTypeSlug();
-		$postType = get_post_type_object($postTypeSlug);
-		
+	protected function addPluginSettings(): void {
+		$pluginName = $this->controller->getName();
+	 
 		// we need to tell WordPress how to show our settings and
 		// how to save them.  we could circumvent this by using the
 		// WordPress Settings API, but I've not had much success
 		// with it in the past.  so, for now, we'll do things this
 		// way.
 		
-		$showCallback = [$this, "showPostTypeSettings"];
-		$saveCallback = [$this, "savePostTypeSettings"];
+		$showHook = $this->getShowSettingsHook();
+		$hook = add_options_page("$pluginName Settings", $pluginName,
+            "manage_options", $this->controller->getSanitizedName(),
+            [$this, $showHook->getHandler()]);
 		
-		$hook = add_options_page(
-			$postType->labels->singular_name . " Settings",
-			$postType->labels->menu_name,
-			"manage_options",
-			$postTypeSlug,
-			$showCallback
-		);
+		// now that WordPress knows how to show our settings, we'd
+		// better tell it how to save them.  this could all be avoided
+		// by using the WP Settings API, but I can so very, very
+		// rarely get it to work.
 		
-		add_action("load-$hook", $saveCallback);
+		$saveHook = $this->getSaveSettingsHook($hook);
+		add_action("load-$hook", [$this, $saveHook->getHandler()]);
+		
+		// now, WordPress knows how to do what it needs, so we just have
+		// to attach these hooks to our own internal list of expected
+		// actions.
+		
+		$this->attachHook($showHook);
+		$this->attachHook($saveHook);
 	}
 	
-	protected function savePostTypeSettings() {
+	/**
+	 * @return Hook
+	 */
+	private function getShowSettingsHook(): Hook {
+		
+		// this method creates and returns a new Hook object that tells
+		// WordPress and this object how to show our plugin settings.
+		// in this case, our hook is somewhat hard to know.  because
+		// we're using the add_options_page() function to hide the
+		// actual hook used.  but, careful analysis of WP lets us know
+		// that we can use the get_plugin_page_hookname() function to
+		// identify it.
+		
+		$hook = get_plugin_page_hookname(
+			$this->controller->getSanitizedName(),
+            "options-general.php"
+        );
+		
+		return new Hook($hook, $this, "showPluginSettings");
+	}
+	
+	/**
+	 * @param string $settingsHook
+	 *
+	 * @return Hook
+	 */
+	private function getSaveSettingsHook(string $settingsHook): Hook {
+		
+		// like the prior method, this one returns a Hook object that is
+		// used to save our page settings.  this time, though, the WP hook
+		// to which we attach our behavior is easy:  it gets passed here
+		// from the calling scope!
+		
+		return new Hook($settingsHook, $this, "savePluginSettings");
+	}
+	
+	protected function savePluginSettings() {
 		$slug = $this->controller->getSettingsSlug();
 		
 		// if our settings were posted here and the referring nonce is
 		// accurate, then we'll proceed.
 		
 		if (isset($_POST[$slug]) && check_admin_referer("save-$slug")) {
+			
+			// in a perfect world, we'd inject these dependencies into our
+			// plugin, but this is not that world (at least, not at this
+			// time).  so, we'll just instantiate our analyzers here and
+			// use 'em below.
+			
+			$validator = new Validator($this);
+			$sanitizer = new Sanitizer($this);
+			$transformer = new Transformer($this);
 			
 			// the only thing we need to check on here is that we have
 			// domains in the appropriate format if they've sent us any
@@ -395,25 +276,13 @@ class Backend extends AbstractBackend {
 			
 			$errors = [];
 			foreach ($settings as $setting => $value) {
-				
-				// we want to create three variable method names here:
-				// a transformer to make any necessary changes to the
-				// data sent to use by the visitor, a validator to be
-				// sure it's correct, and a sanitizer to prepare it to
-				// be saved in the database.
-				
-				$temp = ucfirst($setting);
-				$transformer = "transform$temp";
-				$validator = "validate$temp";
-				$sanitizer = "sanitize$temp";
-				
 				// using variable method calls, we can call the above
-				// prepared methods to process the visitor's entries.
+				// prepared analyzers to process the visitor's entries.
 				
-				$value = $this->{$transformer}($value);
+				$value = $transformer->transform($value, $setting);
 				
-				if ($this->{$validator}($value)) {
-					$settings[$setting] = $this->{$sanitizer}($value);
+				if ($validator->validate($value, $setting)) {
+					$settings[$setting] = $sanitizer->sanitize($value, $setting);
 				} else {
 					$errors[$setting] = true;
 				}
@@ -423,11 +292,11 @@ class Backend extends AbstractBackend {
 			// what we discovered with our validators above.  the one we
 			// call is based on whether or not we encountered problems.
 			
-			$method = sizeof($errors) === 0
-				? "displaySuccess"
-				: "displayErrors";
-			
-			$this->{$method}();
+            if (sizeof($errors) === 0) {
+			    $this->displaySuccess();
+            } else {
+			    $this->displayErrors();
+            }
 			
 			// regardless of whether these settings are erroneous, we'll
 			// save them in the database.  then, we expect the visitor to
@@ -444,14 +313,8 @@ class Backend extends AbstractBackend {
 	 *
 	 * @return void
 	 */
-	protected function displayErrors(): void {
-		
-		// at the moment, we don't actually need $errors because there's
-		// only one field:  authorizedSites.  so, if we're here, then at
-		// least one of their entries wasn't a URL.
-		
+	private function displayErrors(): void {
 		add_action("admin_notices", function () {
-			
 			echo <<< MESSAGE
 				<div class="notice notice-error">
 					<h3>Unable to Save Settings</hd>
@@ -461,7 +324,6 @@ class Backend extends AbstractBackend {
 					the button to save them again.</p>
 				</div>
 MESSAGE;
-			
 		});
 	}
 	
@@ -470,9 +332,8 @@ MESSAGE;
 	 *
 	 * @return void
 	 */
-	protected function displaySuccess(): void {
+	private function displaySuccess(): void {
 		add_action("admin_notices", function () {
-			
 			echo <<< MESSAGE
 				<div class="notice notice-success">
 					<h3>Settings Saved</h3>
@@ -480,91 +341,17 @@ MESSAGE;
 					they've been re-displayed below for your review.</p>
 				</div>
 MESSAGE;
-			
 		});
 	}
 	
-	protected function showPostTypeSettings() {
+	protected function showPluginSettings() {
 		
 		// my IDE flags a warning if we try to require the our settings
 		// page since it can't resolve the plugins_dir_path() function
 		// call.  hence the use of the variable, which the IDE simply
 		// ignores.
 		
-		$file = plugin_dir_path(__FILE__) . "partials/settings.php";
+		$file = plugin_dir_path(__FILE__) . "Assets/settings.php";
 		require_once $file;
 	}
-	
-	/**
-	 * @param string $sites
-	 *
-	 * @return array
-	 */
-	protected function transformAuthorizedSites(string $sites): array {
-		
-		// when the sites come to us, they're a \n separated string.
-		// we want to convert them to an array.  first, we explode(),
-		// but that leaves the \n at the end of each site.  we'll
-		// get rid of those, too.  finally, we'll use array_filter()
-		// to get rid of blanks.
-		
-		$sites = explode("\n", $sites);
-		$sites = array_map("trim", $sites);
-		return array_filter($sites);
-	}
-	
-	/**
-	 * Ensures that sites entered by visitor are valid URLs
-	 *
-	 * @param array $sites
-	 *
-	 * @return bool
-	 */
-	protected function validateAuthorizedSites(array $sites): bool {
-		
-		// we'll assume that everything is okay until proven otherwise.
-		// luckily, we can use the PHP filter_var() function to do most
-		// of the work here.  notice that we skip empty sites; likely
-		// it's a blank line at the end of the textarea if the visitor
-		// hit enter after the last domain.
-		
-		foreach ($sites as $site) {
-			if (!empty($site) && !filter_var($site, FILTER_VALIDATE_URL)) {
-				
-				// if even one URL is invalid, then the whole entry will
-				// need some work.  so, we'll return false here.
-				
-				return false;
-			}
-		}
-		
-		// if we looped over all the sites and all of them validated,
-		// then this entry is valid.  we can return true.
-		
-		return true;
-	}
-	
-	/**
-	 * Sanitizes visitor entry for saving in the database.
-	 *
-	 * @param array $sites
-	 *
-	 * @return array
-	 */
-	protected function sanitizeAuthorizedSites(array $sites): array {
-		
-		// we already know that our $sites are valid URLs because the
-		// prior method handles that for us.  here, we simply want to
-		// ensure that all of our $sites are simply domains with
-		// protocols, no file or query string or any of that
-		// nonsense.
-		
-		foreach ($sites as &$site) {
-			$site = vsprintf("%s://%s", parse_url($site));
-			$site = sanitize_text_field($site);
-		}
-		
-		return $sites;
-	}
 }
-

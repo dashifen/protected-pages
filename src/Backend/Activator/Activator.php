@@ -4,6 +4,7 @@ namespace Dashifen\ProtectedPages\Backend\Activator;
 
 use Dashifen\ProtectedPages\Backend\Backend;
 use Dashifen\WPPB\Component\Backend\Activator\AbstractActivator;
+use Dashifen\WPPB\Component\Backend\BackendTraits\PostTypeTrait;
 
 /**
  * Class Activator
@@ -45,13 +46,20 @@ class Activator extends AbstractActivator {
 		$protectorRole = $backend->getRoleName();
 		$password = wp_generate_password(28, true);
 		
+		$username = $pluginName . "-gatekeeper-" . time();
+		
 		$user = [
 			"role"       => $protectorRole,
-			"user_login" => $pluginName . "-gatekeeper",
+			"user_login" => $username,
 			"user_pass"  => $password,
 		];
 		
 		$userId = wp_insert_user($user);
+		
+		if (is_wp_error($userId)) {
+			die($userId->get_error_message());
+		}
+		
 		add_option($pluginName . "-protector-password", $password);
 		add_option($pluginName . "-protector", $userId);
 	}

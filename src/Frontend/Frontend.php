@@ -2,7 +2,6 @@
 
 namespace Dashifen\ProtectedPages\Frontend;
 
-use Dashifen\ProtectedPages\Backend\Backend;
 use Dashifen\WPPB\Component\AbstractComponent;
 use WP_REST_Request as WP_REST_Request;
 use WP_REST_Response as WP_REST_Response;
@@ -39,12 +38,7 @@ class Frontend extends AbstractComponent {
 		// our Controller and then use the appropriate WordPress functions
 		// that determine what sort of query has been performed.
 		
-		/** @var Backend $backend */
-		
-		$backend = $this->controller->getBackend();
-		$postType = $backend->getPostTypeSlug();
-		
-		return is_post_type_archive($postType) || is_singular($postType);
+		return false;
 	}
 	
 	/**
