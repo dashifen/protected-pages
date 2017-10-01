@@ -4,6 +4,7 @@ namespace Dashifen\ProtectedPages\Backend\Deactivator;
 
 use Dashifen\ProtectedPages\Backend\Backend;
 use Dashifen\WPPB\Component\Backend\Deactivator\AbstractDeactivator;
+use Dashifen\WPPB\Controller\ControllerException;
 
 /**
  * Class Deactivator
@@ -18,22 +19,37 @@ class Deactivator extends AbstractDeactivator {
 	 * @return void
 	 */
 	public function deactivate(): void {
-		
+		$this->removeProtector();
+	}
+	
+	/**
+	 * @return void
+	 * @throws ControllerException
+	 */
+	private function removeProtector(): void {
 		// when deactivating our plugin, we want to remove the Protector
 		// user from the site and then delete the options related to that
 		// user's identity.
 		
 		/** @var Backend $backend */
 		
-		$backend = $this->controller->getBackend();
-		$pluginName = $this->controller->getSanitizedName();
-		
-		if (($userId = get_option($pluginName . "-protector")) !== false) {
-			wp_delete_user($userId);
+		if (!method_exists($this->controller, "getRoleSlugs")) {
+			throw new ControllerException("Missing method: getRoleSlugs.",
+				ControllerException::MISSING_METHOD);
 		}
 		
-		delete_option($pluginName . "-protector-password");
-		delete_option($pluginName . "-protector");
-		remove_role($backend->getRoleSlug());
+		$roles = $this->controller->getRoleSlugs();
+		$pluginName = $this->controller->getSanitizedName();
+		foreach ($roles as $role) {
+			$protectorSetting = $pluginName . "-" . $role;
+			
+			if (($userId = get_option($protectorSetting)) !== false) {
+				wp_delete_user($userId);
+			}
+			
+			delete_option($protectorSetting . "-password");
+			delete_option($protectorSetting);
+			remove_role($role);
+		}
 	}
 }
