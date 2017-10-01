@@ -16,8 +16,10 @@ $pluginSanitizedName = $this->controller->getSanitizedName();
 // it, the content its protecting would likely be visible to them
 // anyway.
 
-$user = new \WP_User(get_option($pluginSanitizedName . "-protector"));
-$password = get_option($pluginSanitizedName . "-protector-password");
+$protectorRole = array_shift($this->controller->getRoleSlugs());
+$protectorUsername = $pluginSanitizedName . "-" . $protectorRole;
+$protector = new \WP_User(get_option($protectorUsername));
+$password = get_option($protectorUsername . "-password");
 
 // the list of authorized sites is supposed to be stored as an array
 // in our database,  but the textarea below will want to show them as
@@ -71,11 +73,11 @@ $authorizedSites = is_array($settings["authorizedSites"])
 	<tbody>
 		<tr>
 			<th scope="row">Username</th>
-			<td><?= $user->user_login ?></td>
+			<td><?= $protector->user_login ?></td>
 		</tr>
 		<tr>
 			<th scope="row">Password</th>
-			<td><?= get_option($pluginSanitizedName . "-protector-password"); ?></td>
+			<td><?= $password; ?></td>
 		</tr>
 	</tbody>
 	</table>

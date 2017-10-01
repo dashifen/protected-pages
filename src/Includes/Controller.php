@@ -44,30 +44,8 @@ class Controller extends AbstractController {
 	/**
 	 * @return array
 	 */
-	protected function getDefaultSettings(): array {
-		
-		// at this time, the only default setting for this plugin is
-		// the fact that the authorized sites setting must be an array
-		// but it starts out blank.  therefore:
-		
-		return [
-			"authorizedSites" => [],
-		];
-		
-	}
-	
-	/**
-	 * @return array
-	 */
 	public function getRoleSlugs(): array {
 		return ["protector"];
-	}
-	
-	/**
-	 * @return array
-	 */
-	public function getRoleNames(): array {
-		return ["protector" => "Protector"];
 	}
 	
 	/**
@@ -86,6 +64,13 @@ class Controller extends AbstractController {
 	}
 	
 	/**
+	 * @return array
+	 */
+	public function getRoleNames(): array {
+		return ["protector" => "Protector"];
+	}
+	
+	/**
 	 * @param string|null $role
 	 *
 	 * @return array
@@ -94,8 +79,8 @@ class Controller extends AbstractController {
 	public function getRoleCapabilities(string $role = null): array {
 		$caps = [
 			"protector" => [
-				"read_protected_pages" => true
-			]
+				"read_protected_pages" => true,
+			],
 		];
 		
 		// if we don't have a $role, we just return all capabilities
@@ -124,6 +109,34 @@ class Controller extends AbstractController {
 	}
 	
 	/**
+	 * @return string
+	 */
+	public function getFilename(): string {
+		
+		// we made sure that the sanitized name of our plugin matches the
+		// folder and index filename for it.  so, we can return the plugin's
+		// filename as follows:
+		
+		$pluginName = $this->getSanitizedName();
+		return sprintf("%s/%s.php", $pluginName, $pluginName);
+	}
+	
+	/**
+	 * @return array
+	 */
+	protected function getDefaultSettings(): array {
+		
+		// at this time, the only default setting for this plugin is
+		// the fact that the authorized sites setting must be an array
+		// but it starts out blank.  therefore:
+		
+		return [
+			"authorizedSites" => [],
+		];
+		
+	}
+	
+	/**
 	 * @param string|null $status
 	 *
 	 * @return array
@@ -136,7 +149,7 @@ class Controller extends AbstractController {
 				"label_count" => _n_noop('Protected <span class="count">(%s)</span>', 'Protected <span class="count">(%s)</span>'),
 				"public"      => false,
 				"internal"    => true,
-			]
+			],
 		];
 		
 		// like the method to get role capabilities above, if we don't
@@ -197,19 +210,6 @@ class Controller extends AbstractController {
 		}
 		
 		return $this->backend;
-	}
-	
-	/**
-	 * @return string
-	 */
-	public function getFilename(): string {
-		
-		// we made sure that the sanitized name of our plugin matches the
-		// folder and index filename for it.  so, we can return the plugin's
-		// filename as follows:
-		
-		$pluginName = $this->getSanitizedName();
-		return sprintf("%s/%s.php", $pluginName, $pluginName);
 	}
 	
 	/**
