@@ -163,7 +163,6 @@ class Controller extends AbstractController {
 	 */
 	protected function defineBackendHooks(): void {
 		$backend = $this->getBackend();
-		$this->loader->addAction("admin_enqueue_scripts", $backend, "enqueueStyles");
 		$this->loader->addAction("admin_enqueue_scripts", $backend, "enqueueScripts");
 		
 		// now, we want to mess around with some of the ways that the

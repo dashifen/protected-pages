@@ -46,25 +46,14 @@ class Backend extends AbstractBackend {
 	}
 	
 	/**
-	 * Enqueues the CSS styles for this plugin
-	 *
-	 * @return void
-	 */
-	protected function enqueueStyles(): void {
-		$url = $this->pluginUrl . "Assets/styles/backend.css";
-		$timestamp = filemtime($this->pluginPath . "Assets/styles/backend.css");
-		wp_enqueue_style("protected-pages-backend", $url, [], $timestamp);
-	}
-	
-	/**
 	 * Enqueues the JS scripts for this plugin
 	 *
 	 * @return void
 	 */
 	protected function enqueueScripts(): void {
-		$url = $this->pluginUrl . "Assets/scripts/alter-visibility.js";
-		$timestamp = filemtime($this->pluginPath . "Assets/scripts/alter-visibility.js");
-		wp_enqueue_script("protected-pages-alter-visibility", $url, [], $timestamp);
+		$url = $this->pluginUrl . "Assets/protected-pages.min.js";
+		$timestamp = filemtime($this->pluginPath . "Assets/scripts/protected-pages.min.js");
+		wp_enqueue_script("protected-pages", $url, [], $timestamp);
 	}
 	
 	/**

@@ -2,8 +2,7 @@
 	$(document).ready(function () {
 
 		// this ... is ... WordPress!  so, jQuery will already been enqueued.
-		// so, while we could do this without jQuery, we might as well use it
-		// to try and make the following script more readable.
+		// so, while we could do this without jQuery, we might as well use it.
 
 		var visibilityElement = $("#hidden-post-visibility");
 		if (visibilityElement.length) {
@@ -52,7 +51,6 @@
 					$("#hidden_post_status").val("protected");
 					$(".edit-post-status").hide();
 				}
-
 			});
 		}
 	});

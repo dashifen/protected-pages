@@ -1,0 +1,15 @@
+{
+  "name": "protected-pages",
+  "description": "A WordPress plugin to create protected pages available from from a list of specified domains.",
+  "repository": "https://github.com/dashifen/protected-pages",
+  "license": "MIT",
+  "version": "2.0.0",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-sourcemaps": "^2.6.1",
+    "gulp-plumber": "^1.1.0",
+    "gulp-uglify": "^3.0.0",
+    "gulp-rename": "^1.2.2",
+    "gulp-concat": "^2.6.1"
+  }
+}
