@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "363536a1cb345113222e6a5cc6275615",
+    "content-hash": "d0774e7c53e865147522a9635fef7e34",
     "packages": [
         {
             "name": "dashifen/exception",
@@ -46,16 +46,16 @@
         },
         {
             "name": "dashifen/wordpress-php7-plugin-boilerplate",
-            "version": "1.0.18-beta",
+            "version": "1.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/dashifen/wordpress-php7-plugin-boilerplate.git",
-                "reference": "5ca78f238f29865b1c47043bcf71b814f4d32d43"
+                "reference": "7e8ab93c463c4fd7b9c4041739434578236e6c86"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/dashifen/wordpress-php7-plugin-boilerplate/zipball/5ca78f238f29865b1c47043bcf71b814f4d32d43",
-                "reference": "5ca78f238f29865b1c47043bcf71b814f4d32d43",
+                "url": "https://api.github.com/repos/dashifen/wordpress-php7-plugin-boilerplate/zipball/7e8ab93c463c4fd7b9c4041739434578236e6c86",
+                "reference": "7e8ab93c463c4fd7b9c4041739434578236e6c86",
                 "shasum": ""
             },
             "require": {
@@ -81,7 +81,7 @@
                 }
             ],
             "description": "An object-oriented boilerplate for WordPress templates using features of PHP 7.1.",
-            "time": "2017-10-05T13:12:27+00:00"
+            "time": "2017-10-06T11:46:09+00:00"
         }
     ],
     "packages-dev": [],

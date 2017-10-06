@@ -195,6 +195,6 @@ class Controller extends AbstractController {
 	protected function defineFrontendHooks(): void {
 		$frontend = $this->getFrontend();
 		$this->loader->addFilter("template_include", $frontend, "preventProtectedAccess");
-//		$this->loader->addFilter("rest_prepare_$postTypeSlug", $frontend, "confirmPostTypeAccess", 10, 3);
+		$this->loader->addFilter("rest_prepare_page", $frontend, "confirmPageAccess", 10, 3);
 	}
 }
