@@ -46,16 +46,16 @@
         },
         {
             "name": "dashifen/wordpress-php7-plugin-boilerplate",
-            "version": "1.0.15-beta",
+            "version": "1.0.18-beta",
             "source": {
                 "type": "git",
                 "url": "https://github.com/dashifen/wordpress-php7-plugin-boilerplate.git",
-                "reference": "f58408cd589d092890d6b314a3dc1c4cf534eac5"
+                "reference": "5ca78f238f29865b1c47043bcf71b814f4d32d43"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/dashifen/wordpress-php7-plugin-boilerplate/zipball/f58408cd589d092890d6b314a3dc1c4cf534eac5",
-                "reference": "f58408cd589d092890d6b314a3dc1c4cf534eac5",
+                "url": "https://api.github.com/repos/dashifen/wordpress-php7-plugin-boilerplate/zipball/5ca78f238f29865b1c47043bcf71b814f4d32d43",
+                "reference": "5ca78f238f29865b1c47043bcf71b814f4d32d43",
                 "shasum": ""
             },
             "require": {
@@ -81,7 +81,7 @@
                 }
             ],
             "description": "An object-oriented boilerplate for WordPress templates using features of PHP 7.1.",
-            "time": "2017-09-30T12:35:49+00:00"
+            "time": "2017-10-05T13:12:27+00:00"
         }
     ],
     "packages-dev": [],

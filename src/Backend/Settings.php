@@ -16,7 +16,9 @@ $pluginSanitizedName = $this->controller->getSanitizedName();
 // it, the content its protecting would likely be visible to them
 // anyway.
 
-$protectorRole = array_shift($this->controller->getRoleSlugs());
+$roles = $this->controller->getRoleSlugs();
+$protectorRole = array_shift($roles);
+
 $protectorUsername = $pluginSanitizedName . "-" . $protectorRole;
 $protector = new \WP_User(get_option($protectorUsername));
 $password = get_option($protectorUsername . "-password");

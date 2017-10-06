@@ -14,6 +14,7 @@ use Dashifen\WPPB\Controller\ControllerInterface;
 use Dashifen\WPPB\Loader\Hook\Hook;
 use WP_Error as WP_Error;
 use WP_User as WP_User;
+use WP_Post as WP_Post;
 
 class Backend extends AbstractBackend {
 	/**
@@ -41,19 +42,75 @@ class Backend extends AbstractBackend {
 		UninstallerInterface $uninstaller
 	) {
 		parent::__construct($controller, $activator, $deactivator, $uninstaller);
-		$this->pluginPath = plugin_dir_path(__FILE__);
-		$this->pluginUrl = plugin_dir_url(__FILE__);
+		$this->pluginPath = untrailingslashit(plugin_dir_path(__FILE__));
+		$this->pluginUrl = untrailingslashit(plugin_dir_url(__FILE__));
 	}
 	
 	/**
-	 * Enqueues the JS scripts for this plugin
+	 * @return void
+	 */
+	protected function addAdminJs() {
+		$js = "/Assets/protected-pages.min.js";
+		$timestamp = filemtime($this->pluginPath . $js);
+		wp_enqueue_script("protected-pages", $this->pluginUrl . $js, ["jquery"], $timestamp);
+	}
+	
+	/**
+	 * Switches a page's status to protected when it should be but isn't.
+	 *
+	 * @param string  $newStatus
+	 * @param string  $oldStatus
+	 * @param WP_Post $post
+	 */
+	protected function publishPage(string $newStatus, string $oldStatus, WP_Post $post) {
+		if ($post->post_type === "page") {
+			
+			// when a Page's status is changed, we look to see if the hidden
+			// protected status field has been posted to the server.  we use
+			// the null-coalescing operator to default to zero if it's un-
+			// available.
+			
+			update_post_meta($post->ID, "_protected", $_POST["hidden-protected-status"] ?? 0);
+		}
+	}
+	
+	/**
+	 * @param array   $postStates
+	 * @param WP_Post $post
+	 *
+	 * @return array
+	 */
+	protected function filterPostStates(array $postStates, WP_Post $post): array {
+		
+		// if the post status is protected, we want the word "Protected" to
+		// be displayed in the states for this post.  that way, it's clear
+		// on screen what's protected and what's not.
+		
+		$protected = get_post_meta($post->ID, "_protected", true);
+		
+		if ($protected) {
+			$postStates["protected-page"] = "Protected";
+		}
+		
+		return $postStates;
+	}
+	
+	/**
+	 * @param WP_Post $post
 	 *
 	 * @return void
 	 */
-	protected function enqueueScripts(): void {
-		$url = $this->pluginUrl . "Assets/protected-pages.min.js";
-		$timestamp = filemtime($this->pluginPath . "Assets/scripts/protected-pages.min.js");
-		wp_enqueue_script("protected-pages", $url, [], $timestamp);
+	protected function addHiddenProtectedField(WP_Post $post): void {
+		$protected = get_post_meta($post->ID, "_protected", true);
+		
+		// this is an action, not a filter, so we can't return this new
+		// input element.  instead, we echo it and it'll be added to the
+		// DOM as a part of the publish meta box.
+		
+		$input = '<input type="hidden" name="hidden-protected-status"
+			id="hidden-protected-status" value="%s">';
+		
+		echo sprintf($input, $protected);
 	}
 	
 	/**
@@ -359,7 +416,7 @@ MESSAGE;
 		// call.  hence the use of the variable, which the IDE simply
 		// ignores.
 		
-		$file = plugin_dir_path(__FILE__) . "Assets/settings.php";
+		$file = plugin_dir_path(__FILE__) . "Settings.php";
 		require_once $file;
 	}
 }

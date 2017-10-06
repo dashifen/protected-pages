@@ -11,11 +11,10 @@ use Dashifen\WPPB\Component\Backend\BackendInterface;
 use Dashifen\WPPB\Component\ComponentInterface;
 use Dashifen\WPPB\Controller\AbstractController;
 use Dashifen\WPPB\Controller\ControllerException;
-use Dashifen\WPPB\Controller\ControllerTraits\PostStatusesTrait;
 use Dashifen\WPPB\Controller\ControllerTraits\RolesTrait;
 
 class Controller extends AbstractController {
-	use RolesTrait, PostStatusesTrait;
+	use RolesTrait;
 	
 	/**
 	 * @var BackendInterface $backend
@@ -102,13 +101,6 @@ class Controller extends AbstractController {
 	}
 	
 	/**
-	 * @return array
-	 */
-	public function getPostStatuses(): array {
-		return ["protected"];
-	}
-	
-	/**
 	 * @return string
 	 */
 	public function getFilename(): string {
@@ -119,80 +111,6 @@ class Controller extends AbstractController {
 		
 		$pluginName = $this->getSanitizedName();
 		return sprintf("%s/%s.php", $pluginName, $pluginName);
-	}
-	
-	/**
-	 * @return array
-	 */
-	protected function getDefaultSettings(): array {
-		
-		// at this time, the only default setting for this plugin is
-		// the fact that the authorized sites setting must be an array
-		// but it starts out blank.  therefore:
-		
-		return [
-			"authorizedSites" => [],
-		];
-		
-	}
-	
-	/**
-	 * @param string|null $status
-	 *
-	 * @return array
-	 * @throws ControllerException
-	 */
-	protected function getPostStatusArguments(string $status = null): array {
-		$args = [
-			"protected" => [
-				"label"       => "Protected",
-				"label_count" => _n_noop('Protected <span class="count">(%s)</span>', 'Protected <span class="count">(%s)</span>'),
-				"public"      => false,
-				"internal"    => true,
-			],
-		];
-		
-		// like the method to get role capabilities above, if we don't
-		// have a specified $status, then we're happy to return the $args
-		// array entirely.
-		
-		if (is_null($status)) {
-			return $args;
-		}
-		
-		// otherwise, as long as $status is a key in $args, we'll return
-		// those data without the rest.  if $status is unknown, we throw
-		// a tantrum.
-		
-		if (!in_array($status, array_keys($args))) {
-			throw new ControllerException("Unknown status: $status.");
-		}
-		
-		return $args[$status];
-	}
-	
-	/**
-	 * @return void
-	 */
-	protected function defineBackendHooks(): void {
-		$backend = $this->getBackend();
-		$this->loader->addAction("admin_enqueue_scripts", $backend, "enqueueScripts");
-		
-		// now, we want to mess around with some of the ways that the
-		// Protector role we described above would be displayed within
-		// WordPress core.
-		
-		$this->loader->addFilter("editable_roles", $backend, "removeProtectorFromRoleSelector");
-		$this->loader->addFilter("views_users", $backend, "removeProtectorFromUserViews");
-		$this->loader->addFilter("users_list_table_query_args", $backend, "removeProtectorFromUserQueries");
-		$this->loader->addFilter("authenticate", $backend, "preventProtectorLogin", 100, 2);
-		
-		// finally, we'll need a settings page for our plugin.  this is
-		// where we specify the list of other URLs from which we can get
-		// Protected Pages as well as display the application account
-		// information that should be used when doing so.
-		
-		$this->loader->addAction("admin_menu", $backend, "addPluginSettings");
 	}
 	
 	/**
@@ -213,15 +131,6 @@ class Controller extends AbstractController {
 	}
 	
 	/**
-	 * @return void
-	 */
-	protected function defineFrontendHooks(): void {
-		$frontend = $this->getFrontend();
-		$this->loader->addFilter("template_include", $frontend, "preventProtectedAccess");
-//		$this->loader->addFilter("rest_prepare_$postTypeSlug", $frontend, "confirmPostTypeAccess", 10, 3);
-	}
-	
-	/**
 	 * @return ComponentInterface
 	 */
 	public function getFrontend(): ComponentInterface {
@@ -235,5 +144,57 @@ class Controller extends AbstractController {
 		}
 		
 		return $this->frontend;
+	}
+	
+	/**
+	 * @return array
+	 */
+	protected function getDefaultSettings(): array {
+		
+		// at this time, the only default setting for this plugin is
+		// the fact that the authorized sites setting must be an array
+		// but it starts out blank.  therefore:
+		
+		return [
+			"authorizedSites" => [],
+		];
+		
+	}
+	
+	/**
+	 * @return void
+	 */
+	protected function defineBackendHooks(): void {
+		$backend = $this->getBackend();
+		$this->loader->addAction("admin_enqueue_scripts", $backend, "addAdminJs");
+		$this->loader->addAction("transition_post_status", $backend, "publishPage", 10, 3);
+		$this->loader->addFilter("display_post_states", $backend, "filterPostStates", 10, 2);
+		$this->loader->addAction("post_submitbox_minor_actions", $backend, "addHiddenProtectedField");
+		
+		
+		// now, we want to mess around with some of the ways that the
+		// Protector role we described above would be displayed within
+		// WordPress core.
+		
+		$this->loader->addFilter("editable_roles", $backend, "removeProtectorFromRoleSelector");
+		$this->loader->addFilter("views_users", $backend, "removeProtectorFromUserViews");
+		$this->loader->addFilter("users_list_table_query_args", $backend, "removeProtectorFromUserQueries");
+		$this->loader->addFilter("authenticate", $backend, "preventProtectorLogin", 100, 2);
+		
+		// finally, we'll need a settings page for our plugin.  this is
+		// where we specify the list of other URLs from which we can get
+		// Protected Pages as well as display the application account
+		// information that should be used when doing so.
+		
+		$this->loader->addAction("admin_menu", $backend, "addPluginSettings");
+	}
+	
+	/**
+	 * @return void
+	 */
+	protected function defineFrontendHooks(): void {
+		$frontend = $this->getFrontend();
+		$this->loader->addFilter("template_include", $frontend, "preventProtectedAccess");
+//		$this->loader->addFilter("rest_prepare_$postTypeSlug", $frontend, "confirmPostTypeAccess", 10, 3);
 	}
 }
