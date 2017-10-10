@@ -62,15 +62,17 @@ class Backend extends AbstractBackend {
 	 * @param string  $oldStatus
 	 * @param WP_Post $post
 	 */
-	protected function publishPage(string $newStatus, string $oldStatus, WP_Post $post) {
-		if ($post->post_type === "page") {
-			
-			// when a Page's status is changed, we look to see if the hidden
-			// protected status field has been posted to the server.  we use
-			// the null-coalescing operator to default to zero if it's un-
-			// available.
-			
-			update_post_meta($post->ID, "_protected", $_POST["hidden-protected-status"] ?? 0);
+	protected function updateProtectedPageStatus(string $newStatus, string $oldStatus, WP_Post $post) {
+		
+		// when page undergoes a state transition in the database, we want to
+		// update it's _protected meta value if and only if the hidden input
+		// we add to the DOM on the page editor is present.  if it is present,
+		// we update that meta value to its value.  the check for the existence
+		// of the field prevents it from being altered when someone uses the
+		// Quick Editor to change a protected page's information, for example.
+		
+		if ($post->post_type === "page" && isset($_POST["hidden-protected-status"])) {
+			update_post_meta($post->ID, "_protected", $_POST["hidden-protected-status"]);
 		}
 	}
 	

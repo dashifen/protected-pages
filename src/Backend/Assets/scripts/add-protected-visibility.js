@@ -6,10 +6,21 @@
 
 		var hiddenVisibility = $("#hidden-post-visibility");
 		if (hiddenVisibility.length > 0) {
-			addProtectedVisibility();
-			setOnscreenVisibilityDisplay();
+			if (getPostType() === "page") {
+				addProtectedVisibility();
+				setOnscreenVisibilityDisplay();
+			}
 		}
 	});
+
+	function getPostType() {
+
+		// the body tag has a post-type-<x> class where <x> is the post
+		// type for this.  so, we'll get the body's classes, and use a
+		// regular expression to find and return the <x>.
+
+		return document.body.className.match(/post-type-([^ ]+)/)[1];
+	}
 
 	function addProtectedVisibility() {
 		var br = removePasswordProtectedVisibility();
@@ -81,13 +92,12 @@
 
 	function setOnscreenVisibilityDisplay() {
 		var pageIsProtected = $("#hidden-protected-status").val();
-		if (pageIsProtected) {
+		if (pageIsProtected === "1") {
 
 			// if this page is protected, then we need to update the
 			// on-screen display of it's visibility.  otherwise, WordPress
 			// will default to "public" which isn't really accurate.
 
-			console.log(pageIsProtected);
 			$("#post-visibility-display").text("Protected");
 		}
 	}

@@ -167,19 +167,18 @@ class Controller extends AbstractController {
 	protected function defineBackendHooks(): void {
 		$backend = $this->getBackend();
 		$this->loader->addAction("admin_enqueue_scripts", $backend, "addAdminJs");
-		$this->loader->addAction("transition_post_status", $backend, "publishPage", 10, 3);
 		$this->loader->addFilter("display_post_states", $backend, "filterPostStates", 10, 2);
+		$this->loader->addAction("transition_post_status", $backend, "updateProtectedPageStatus", 10, 3);
 		$this->loader->addAction("post_submitbox_minor_actions", $backend, "addHiddenProtectedField");
-		
 		
 		// now, we want to mess around with some of the ways that the
 		// Protector role we described above would be displayed within
 		// WordPress core.
 		
+		$this->loader->addFilter("authenticate", $backend, "preventProtectorLogin", 100, 2);
+		$this->loader->addFilter("users_list_table_query_args", $backend, "removeProtectorFromUserQueries");
 		$this->loader->addFilter("editable_roles", $backend, "removeProtectorFromRoleSelector");
 		$this->loader->addFilter("views_users", $backend, "removeProtectorFromUserViews");
-		$this->loader->addFilter("users_list_table_query_args", $backend, "removeProtectorFromUserQueries");
-		$this->loader->addFilter("authenticate", $backend, "preventProtectorLogin", 100, 2);
 		
 		// finally, we'll need a settings page for our plugin.  this is
 		// where we specify the list of other URLs from which we can get

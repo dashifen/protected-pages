@@ -3,9 +3,9 @@
 namespace Dashifen\ProtectedPages\Frontend;
 
 use Dashifen\WPPB\Component\AbstractComponent;
+use WP_Post as WP_Post;
 use WP_REST_Request as WP_REST_Request;
 use WP_REST_Response as WP_REST_Response;
-use WP_Post as WP_Post;
 
 class Frontend extends AbstractComponent {
 	
@@ -75,11 +75,12 @@ class Frontend extends AbstractComponent {
 			// person who is logged in cannot read protected pages, (c) when
 			// our request isn't from an authorized domain.
 			
-			if (
-				!is_user_logged_in() ||
-				!current_user_can("read_protected_pages") ||
-				!$this->isSiteAuthorized($request)
-			) {
+			$userLoggedIn = is_user_logged_in();
+			$userCanReadProtectedPages = current_user_can("read_protected_pages");
+			$siteIsAuthorized = $this->isSiteAuthorized($request);
+			
+			
+			if (!$userLoggedIn || !$userCanReadProtectedPages || !$siteIsAuthorized) {
 				
 				// if we're in here, then we need to send an error response.
 				// ordinarily, we'd send a 401 Unauthorized message in this
@@ -89,9 +90,13 @@ class Frontend extends AbstractComponent {
 				
 				$response = new WP_REST_Response([
 					"code"    => "rest_cannot_read",
-					"message" => "Sorry, we could not find that post.",
+					"message" => "Sorry, we couldn't find that post.",
 					"data"    => [
-						"status" => 404,
+						"status"         => 404,
+						/*"userLoggedIn"   => $userLoggedIn ? 1 : 0,
+						"userCanRead"    => $userCanReadProtectedPages ? 1 : 0,
+						"siteAuthorized" => $siteIsAuthorized ? 1 : 0,
+						"request" => serialize($request),*/
 					],
 				]);
 			}
