@@ -2,58 +2,58 @@
 
 namespace Dashifen\ProtectedPages\Frontend;
 
-use Dashifen\ProtectedPages\Includes\Controller;
-use \WP_REST_Response as WP_REST_Response;
-use \WP_REST_Request as WP_REST_Request;
-use \WP_Post as WP_Post;
+use Dashifen\WPPB\Component\AbstractComponent;
+use WP_Post as WP_Post;
+use WP_REST_Request as WP_REST_Request;
+use WP_REST_Response as WP_REST_Response;
 
-class Frontend {
-	
-	/**
-	 * @var Controller
-	 */
-	protected $controller;
-	
-	/**
-	 * ProtectedPagesPublic constructor.
-	 *
-	 * @param Controller $controller
-	 */
-	public function __construct(Controller $controller) {
-		$this->controller = $controller;
-	}
+class Frontend extends AbstractComponent {
 	
 	/**
 	 * @param string $template
 	 *
 	 * @return string
 	 */
-	public function preventProtectedAccess(string $template): string {
+	protected function preventProtectedAccess(string $template): string {
+		/**
+		 * get_queried_object() doesn't always return a WP_Post, but we'll
+		 * test it using instanceof to confirm.
+		 *
+		 * @var WP_Post $post
+		 */
+		$post = get_queried_object();
 		
-		// to truly make this content "protected" (for our definition of
-		// protected) we need to be sure that it cannot be displayed by
-		// WordPress on this site, only via the sites specified in the
-		// plugin"s settings.  so, if we"re visiting the archive of or
-		// a singular post without our type, we switch the template for
-		// the 404.  NOTE: this does not prevent the API from displaying
-		// our protected content.
-		
-		if ($this->isProtected()) {
+		if ($post instanceof WP_Post
+			&& $post->post_type === "page"
+			&& $this->isProtected($post)
+		) {
+			
+			// if we're in here, then our $post is a WP_Post object,
+			// it's post type is "page," and it's to be protected.  so,
+			// we want to switch our template to the 404 file so that
+			// it doesn't appear to exist on this site.  the REST API
+			// is how we access such things.
+			
 			$template = locate_template("404.php");
 		}
 		
 		return $template;
 	}
 	
-	private function isProtected() {
+	/**
+	 * @param WP_Post|null $post
+	 *
+	 * @return bool
+	 */
+	private function isProtected(WP_Post $post): bool {
 		
-		// to identify whether or not this is a protected page (or the
-		// archive thereof) we can simply grab the post type slug from
-		// our Controller and then use the appropriate WordPress functions
-		// that determine what sort of query has been performed.
+		// to know if a post is protected, we access its _protected
+		// meta value.  if that's truth-y, then it's protected.  we
+		// actually store 1 and 0 in the database for the meta value
+		// so we cast it to a Boolean as we return.
 		
-		$postType = $this->controller->getPostTypeSlug();
-		return is_post_type_archive($postType) || is_singular($postType);
+		$protected = get_post_meta($post->ID, "_protected", true);
+		return (bool)$protected;
 	}
 	
 	/**
@@ -63,34 +63,43 @@ class Frontend {
 	 *
 	 * @return WP_REST_Response
 	 */
-	public function confirmPostTypeAccess(WP_REST_Response $response, WP_Post $post, WP_REST_Request $request) {
-		
-		// this method filters our $response parameter creating an error
-		// response when either (a) no one is logged in, (b) when the person
-		// who is logged in cannot read private pages, (c) when our request
-		// isn't from an authorized domain.
-		
-		// TODO: create custom capability for reading protected pages
-		
-		if (
-			!is_user_logged_in() ||
-			!current_user_can("read_private_pages") ||
-			!$this->isSiteAuthorized($request)
-		) {
+	protected function confirmPageAccess(
+		WP_REST_Response $response,
+		WP_Post $post,
+		WP_REST_Request $request
+	) {
+		if ($this->isProtected($post)) {
 			
-			// if we're in here, then we need to send an error response.
-			// ordinarily, we'd send a 401 Unauthorized message in this sort
-			// of situation, but we're pretending the protected pages don't
-			// exist when someone shouldn't know about them.  therefore, we
-			// send a 404 Not Found error here.
+			// this method filters our $response parameter creating an error
+			// response when either (a) no one is logged in, (b) when the
+			// person who is logged in cannot read protected pages, (c) when
+			// our request isn't from an authorized domain.
 			
-			$response = new WP_REST_Response([
-				"code"    => "rest_cannot_read",
-				"message" => "Sorry, we could not find that post.",
-				"data"    => [
-					"status" => 404,
-				],
-			]);
+			$userLoggedIn = is_user_logged_in();
+			$userCanReadProtectedPages = current_user_can("read_protected_pages");
+			$siteIsAuthorized = $this->isSiteAuthorized($request);
+			
+			
+			if (!$userLoggedIn || !$userCanReadProtectedPages || !$siteIsAuthorized) {
+				
+				// if we're in here, then we need to send an error response.
+				// ordinarily, we'd send a 401 Unauthorized message in this
+				// sort of situation, but we're pretending the protected pages
+				// don't exist when someone shouldn't know about them.
+				// therefore, we send a 404 Not Found error here.
+				
+				$response = new WP_REST_Response([
+					"code"    => "rest_cannot_read",
+					"message" => "Sorry, we couldn't find that post.",
+					"data"    => [
+						"status"         => 404,
+						/*"userLoggedIn"   => $userLoggedIn ? 1 : 0,
+						"userCanRead"    => $userCanReadProtectedPages ? 1 : 0,
+						"siteAuthorized" => $siteIsAuthorized ? 1 : 0,
+						"request" => serialize($request),*/
+					],
+				]);
+			}
 		}
 		
 		return $response;
@@ -104,13 +113,12 @@ class Frontend {
 	 * @return bool
 	 */
 	private function isSiteAuthorized(WP_REST_Request $request): bool {
-		$settings = $this->controller->getSettings();
-		$site = $request->get_header("Origin");
 		
 		// checking to see if our request originated from an authorized
 		// site is easy:  we get the Origin: header and see if it's in
 		// the authorizedSites array in our settings.
 		
-		return in_array($site, $settings["authorizedSites"]);
+		return in_array($request->get_header("Origin"),
+			$this->controller->getSetting("authorizedSites"));
 	}
 }

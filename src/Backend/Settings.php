@@ -5,8 +5,8 @@
 // specifically the $controller object which we use below.
 
 $settings = $this->controller->getSettings();
-$pluginName = $this->controller->getPluginName();
 $settingsSlug = $this->controller->getSettingsSlug();
+$pluginSanitizedName = $this->controller->getSanitizedName();
 
 // we'll want to display the username and password for our Protector
 // below.  we can get the user information fairly easily, but the
@@ -16,8 +16,12 @@ $settingsSlug = $this->controller->getSettingsSlug();
 // it, the content its protecting would likely be visible to them
 // anyway.
 
-$user = new \WP_User(get_option($pluginName . "-protector"));
-$password = get_option($pluginName . "-protector-password");
+$roles = $this->controller->getRoleSlugs();
+$protectorRole = array_shift($roles);
+
+$protectorUsername = $pluginSanitizedName . "-" . $protectorRole;
+$protector = new \WP_User(get_option($protectorUsername));
+$password = get_option($protectorUsername . "-password");
 
 // the list of authorized sites is supposed to be stored as an array
 // in our database,  but the textarea below will want to show them as
@@ -71,11 +75,11 @@ $authorizedSites = is_array($settings["authorizedSites"])
 	<tbody>
 		<tr>
 			<th scope="row">Username</th>
-			<td><?= $user->user_login ?></td>
+			<td><?= $protector->user_login ?></td>
 		</tr>
 		<tr>
 			<th scope="row">Password</th>
-			<td><?= get_option($pluginName . "-protector-password", "foo"); ?></td>
+			<td><?= $password; ?></td>
 		</tr>
 	</tbody>
 	</table>
