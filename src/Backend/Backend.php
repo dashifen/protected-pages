@@ -13,8 +13,9 @@ use Dashifen\WPPB\Controller\ControllerException;
 use Dashifen\WPPB\Controller\ControllerInterface;
 use Dashifen\WPPB\Loader\Hook\Hook;
 use WP_Error as WP_Error;
-use WP_User as WP_User;
+use WP_Query as WP_Query;
 use WP_Post as WP_Post;
+use WP_User as WP_User;
 
 class Backend extends AbstractBackend {
 	/**
@@ -77,6 +78,24 @@ class Backend extends AbstractBackend {
 	}
 	
 	/**
+	 * @param WP_Post $post
+	 *
+	 * @return void
+	 */
+	protected function addHiddenProtectedField(WP_Post $post): void {
+		$protected = get_post_meta($post->ID, "_protected", true);
+		
+		// this is an action, not a filter, so we can't return this new
+		// input element.  instead, we echo it and it'll be added to the
+		// DOM as a part of the publish meta box.
+		
+		$input = '<input type="hidden" name="hidden-protected-status"
+			id="hidden-protected-status" value="%s">';
+		
+		echo sprintf($input, $protected);
+	}
+	
+	/**
 	 * @param array   $postStates
 	 * @param WP_Post $post
 	 *
@@ -98,21 +117,50 @@ class Backend extends AbstractBackend {
 	}
 	
 	/**
-	 * @param WP_Post $post
+	 * @param array $views
+	 *
+	 * @return array
+	 */
+	protected function filterPageViews(array $views): array {
+		
+		// here we want to add a protected view to our list of the default
+		// views which are passed here.  this is somewhat difficult since we
+		// need to filter based on a meta value when loading protected posts
+		// so the URL that we construct here is a little rough.  we can start,
+		// however, with the "all" link and build onto it.
+		
+		$posts = get_posts([
+			"meta_key"       => "_protected",
+			"meta_value"     => 1,
+			"posts_per_page" => -1,
+			"post_type"      => "page",
+		]);
+		
+		$views["protected"] = sprintf(
+			'<a href="%s"> Protected <span class="count">(%d)</span></a>',
+			"edit.php?post_type=page&protected=1",
+			sizeof($posts)
+		);
+		
+		return $views;
+	}
+	
+	/**
+	 * @param WP_Query $query
 	 *
 	 * @return void
 	 */
-	protected function addHiddenProtectedField(WP_Post $post): void {
-		$protected = get_post_meta($post->ID, "_protected", true);
-		
-		// this is an action, not a filter, so we can't return this new
-		// input element.  instead, we echo it and it'll be added to the
-		// DOM as a part of the publish meta box.
-		
-		$input = '<input type="hidden" name="hidden-protected-status"
-			id="hidden-protected-status" value="%s">';
-		
-		echo sprintf($input, $protected);
+	protected function alterPageQuery(WP_Query $query): void {
+		if (get_current_screen()->id === "edit-page" && ($_GET["protected"] ?? false)) {
+			
+			// if we're in here, then we're on the listing of our pages
+			// and the visitor has requested only the protected one.  we'll
+			// slightly alter our $query parameter so that that's all they
+			// receive.
+			
+			$query->set("meta_key", "_protected");
+			$query->set("meta_value", 1);
+		}
 	}
 	
 	/**
@@ -248,7 +296,7 @@ class Backend extends AbstractBackend {
 	 */
 	protected function addPluginSettings(): void {
 		$pluginName = $this->controller->getName();
-	 
+		
 		// we need to tell WordPress how to show our settings and
 		// how to save them.  we could circumvent this by using the
 		// WordPress Settings API, but I've not had much success
@@ -257,8 +305,8 @@ class Backend extends AbstractBackend {
 		
 		$showHook = $this->getShowSettingsHook();
 		$hook = add_options_page("$pluginName Settings", $pluginName,
-            "manage_options", $this->controller->getSanitizedName(),
-            [$this, $showHook->getHandler()]);
+			"manage_options", $this->controller->getSanitizedName(),
+			[$this, $showHook->getHandler()]);
 		
 		// now that WordPress knows how to show our settings, we'd
 		// better tell it how to save them.  this could all be avoided
@@ -291,8 +339,8 @@ class Backend extends AbstractBackend {
 		
 		$hook = get_plugin_page_hookname(
 			$this->controller->getSanitizedName(),
-            "options-general.php"
-        );
+			"options-general.php"
+		);
 		
 		return new Hook($hook, $this, "showPluginSettings");
 	}
@@ -359,11 +407,11 @@ class Backend extends AbstractBackend {
 			// what we discovered with our validators above.  the one we
 			// call is based on whether or not we encountered problems.
 			
-            if (sizeof($errors) === 0) {
-			    $this->displaySuccess();
-            } else {
-			    $this->displayErrors();
-            }
+			if (sizeof($errors) === 0) {
+				$this->displaySuccess();
+			} else {
+				$this->displayErrors();
+			}
 			
 			// regardless of whether these settings are erroneous, we'll
 			// save them in the database.  then, we expect the visitor to
@@ -373,6 +421,23 @@ class Backend extends AbstractBackend {
 			update_option($this->controller->getSettingsSlug(), $settings);
 			unset($_POST);
 		}
+	}
+	
+	/**
+	 * Displays an admin notice about successfully saved settings
+	 *
+	 * @return void
+	 */
+	private function displaySuccess(): void {
+		add_action("admin_notices", function () {
+			echo <<< MESSAGE
+				<div class="notice notice-success">
+					<h3>Settings Saved</h3>
+					<p>Your entries have been saved in the database, and
+					they've been re-displayed below for your review.</p>
+				</div>
+MESSAGE;
+		});
 	}
 	
 	/**
@@ -389,23 +454,6 @@ class Backend extends AbstractBackend {
 					not appear to be a valid URL.  Please double-check
 					your entries, make the necessary changes, and click
 					the button to save them again.</p>
-				</div>
-MESSAGE;
-		});
-	}
-	
-	/**
-	 * Displays an admin notice about successfully saved settings
-	 *
-	 * @return void
-	 */
-	private function displaySuccess(): void {
-		add_action("admin_notices", function () {
-			echo <<< MESSAGE
-				<div class="notice notice-success">
-					<h3>Settings Saved</h3>
-					<p>Your entries have been saved in the database, and
-					they've been re-displayed below for your review.</p>
 				</div>
 MESSAGE;
 		});

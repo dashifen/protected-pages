@@ -166,10 +166,23 @@ class Controller extends AbstractController {
 	 */
 	protected function defineBackendHooks(): void {
 		$backend = $this->getBackend();
+
+		// the following hooks are all used to add and control our custom
+		// visibility.  the JavaScript handles the DOM changes we need to make
+		// to the Publish meta box while the others help to control ensure
+		// that a post can "remember" when it's protected and not.
+
 		$this->loader->addAction("admin_enqueue_scripts", $backend, "addAdminJs");
-		$this->loader->addFilter("display_post_states", $backend, "filterPostStates", 10, 2);
 		$this->loader->addAction("transition_post_status", $backend, "updateProtectedPageStatus", 10, 3);
 		$this->loader->addAction("post_submitbox_minor_actions", $backend, "addHiddenProtectedField");
+
+		// on the Pages listing, we want to make it clear what is protected
+		// and provide an easy way to view protected pages.  these filters do
+		// that.
+		
+		$this->loader->addFilter("display_post_states", $backend, "filterPostStates", 10, 2);
+		$this->loader->addFilter("views_edit-page", $backend, "filterPageViews");
+		$this->loader->addAction("pre_get_posts", $backend, "alterPageQuery");
 		
 		// now, we want to mess around with some of the ways that the
 		// Protector role we described above would be displayed within
