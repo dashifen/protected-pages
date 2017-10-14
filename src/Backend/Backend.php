@@ -103,6 +103,27 @@ class Backend extends AbstractBackend {
 	}
 	
 	/**
+	 * @param array   $postStates
+	 * @param WP_Post $post
+	 *
+	 * @return array
+	 */
+	protected function filterPostStates(array $postStates, WP_Post $post): array {
+		
+		// if the post status is protected, we want the word "Protected" to
+		// be displayed in the states for this post.  that way, it's clear
+		// on screen what's protected and what's not.
+		
+		$protected = get_post_meta($post->ID, "_protected", true);
+		
+		if ($protected) {
+			$postStates["protected-page"] = "Protected";
+		}
+		
+		return $postStates;
+	}
+	
+	/**
 	 * @param array $views
 	 *
 	 * @return array
