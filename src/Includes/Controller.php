@@ -30,7 +30,7 @@ class Controller extends AbstractController {
 	 * @return string
 	 */
 	public function getName(): string {
-		return "Protected Pages";
+		return __("Protected Pages", "protected-pages");
 	}
 	
 	/**
@@ -66,7 +66,7 @@ class Controller extends AbstractController {
 	 * @return array
 	 */
 	public function getRoleNames(): array {
-		return ["protector" => "Protector"];
+		return ["protector" => __("Protector", "protected-pages")];
 	}
 	
 	/**
@@ -158,8 +158,15 @@ class Controller extends AbstractController {
 		return [
 			"authorizedSites" => [],
 		];
-		
 	}
+	
+	/**
+	 * @return void
+	 */
+	protected function initializeI18n(): void {
+		$this->loader->addAction("plugins_loader", $this->getBackend(), "i18n");
+	}
+	
 	
 	/**
 	 * @return void

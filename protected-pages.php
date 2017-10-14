@@ -3,9 +3,11 @@
 Plugin Name: Protected Pages
 Plugin URI: https://github.com/dashifen/protected-pages
 Description: A WordPress plugin to create protected pages available from from a list of specified domains.
-Version: 2.0.3
+Version: 2.0.4
 Author: David Dashifen Kees
 Author URI: https://dashifen.com
+Text Domain: protected-pages
+Domain Path: /languages
 */
 
 // if this file is called directly, abort.

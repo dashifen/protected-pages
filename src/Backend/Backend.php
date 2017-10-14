@@ -50,6 +50,13 @@ class Backend extends AbstractBackend {
 	/**
 	 * @return void
 	 */
+	protected function i18n(): void {
+		load_plugin_textdomain("protected-pages", false, __DIR__);
+	}
+	
+	/**
+	 * @return void
+	 */
 	protected function addAdminJs() {
 		$js = "/Assets/protected-pages.min.js";
 		$timestamp = filemtime($this->pluginPath . $js);
@@ -92,28 +99,7 @@ class Backend extends AbstractBackend {
 		$input = '<input type="hidden" name="hidden-protected-status"
 			id="hidden-protected-status" value="%s">';
 		
-		echo sprintf($input, $protected);
-	}
-	
-	/**
-	 * @param array   $postStates
-	 * @param WP_Post $post
-	 *
-	 * @return array
-	 */
-	protected function filterPostStates(array $postStates, WP_Post $post): array {
-		
-		// if the post status is protected, we want the word "Protected" to
-		// be displayed in the states for this post.  that way, it's clear
-		// on screen what's protected and what's not.
-		
-		$protected = get_post_meta($post->ID, "_protected", true);
-		
-		if ($protected) {
-			$postStates["protected-page"] = "Protected";
-		}
-		
-		return $postStates;
+		echo sprintf($input, esc_attr($protected));
 	}
 	
 	/**
@@ -151,15 +137,20 @@ class Backend extends AbstractBackend {
 	 * @return void
 	 */
 	protected function alterPageQuery(WP_Query $query): void {
-		if (get_current_screen()->id === "edit-page" && ($_GET["protected"] ?? false)) {
+		if (function_exists("get_current_screen")) {
 			
-			// if we're in here, then we're on the listing of our pages
-			// and the visitor has requested only the protected one.  we'll
-			// slightly alter our $query parameter so that that's all they
-			// receive.
+			// one we know that we can identify the current screen (i.e.,
+			// that we're somewhere in the administrative dashboard), we
+			// can call it to know where we are.  then, if we're on the
+			// page that lists our Pages and the request includes the
+			// protected flag, we'll add some meta data variables to our
+			// query.
 			
-			$query->set("meta_key", "_protected");
-			$query->set("meta_value", 1);
+			$screen = get_current_screen();
+			if ($screen->id === "edit-page" && ($_GET["protected"] ?? false)) {
+				$query->set("meta_key", "_protected");
+				$query->set("meta_value", 1);
+			}
 		}
 	}
 	
@@ -277,12 +268,10 @@ class Backend extends AbstractBackend {
 				// know that there's a problem.  we stole this error from
 				// WordPress core.
 				
-				return new WP_Error('invalid_username',
-					'<strong>ERROR</strong>: Invalid username.' .
-					' <a href="' . wp_lostpassword_url() . '">' .
-					'Lost your password?' .
-					'</a>'
-				);
+				$message = __("Lost your password?");
+				$heading = __('ERROR: Invalid username.', "protected-pages");
+				$message = sprintf('<a href="%s">%s</a>', wp_lostpassword_url(), $message);
+				return new WP_Error('invalid_username', $heading . $message);
 			}
 		}
 		
@@ -430,13 +419,9 @@ class Backend extends AbstractBackend {
 	 */
 	private function displaySuccess(): void {
 		add_action("admin_notices", function () {
-			echo <<< MESSAGE
-				<div class="notice notice-success">
-					<h3>Settings Saved</h3>
-					<p>Your entries have been saved in the database, and
-					they've been re-displayed below for your review.</p>
-				</div>
-MESSAGE;
+			$heading = __("Settings Saved", "protected-pages");
+			$message = __("Your entries have been saved in the database, and they've been re-displayed below for your review.", "protected-pages");
+			echo apply_filters("protected_pages_settings_success", '<div class="notice notice-success"><h3>'.$heading.'</h3><p>'.$message.'</p></div>', $heading, $message);
 		});
 	}
 	
@@ -447,15 +432,9 @@ MESSAGE;
 	 */
 	private function displayErrors(): void {
 		add_action("admin_notices", function () {
-			echo <<< MESSAGE
-				<div class="notice notice-error">
-					<h3>Unable to Save Settings</hd>
-					<p>At least one of the sites you entered below does
-					not appear to be a valid URL.  Please double-check
-					your entries, make the necessary changes, and click
-					the button to save them again.</p>
-				</div>
-MESSAGE;
+			$heading = __("Unable to Save Settings", "protected-pages");
+			$message = __("At least one of the sites you entered below does not appear to be a valid URL.  Please double-check your entries, make the necessary changes, and click the button to save them again.", "protected-pages");
+			echo apply_filters("protected_pages_settings_failure", '<div class="notice notice-error"><h3>'.$heading.'</h3><p>'.$message.'</p></div>', $heading, $message);
 		});
 	}
 	

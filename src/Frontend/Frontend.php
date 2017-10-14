@@ -90,7 +90,7 @@ class Frontend extends AbstractComponent {
 				
 				$response = new WP_REST_Response([
 					"code"    => "rest_cannot_read",
-					"message" => "Sorry, we couldn't find that post.",
+					"message" => __("Sorry, we couldn't find that post", "protected-pages"),
 					"data"    => [
 						"status"         => 404,
 						/*"userLoggedIn"   => $userLoggedIn ? 1 : 0,
